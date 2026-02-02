@@ -193,3 +193,331 @@ yarn test:shared   # All shared code tests
 - Follow OWASP guidelines.
 - Never store sensitive data in plain text.
 - Use environment variables for secrets.
+
+## Environment Setup
+
+### Required Environment Variables
+
+Create a `.env` file based on `.env.sample`. Key variables include:
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `DATABASE_URL` | PostgreSQL connection string | Yes |
+| `REDIS_URL` | Redis connection string | Yes |
+| `SECRET_KEY` | Secret for signing cookies/tokens | Yes |
+| `UTILS_SECRET` | Additional secret for utilities | Yes |
+| `URL` | Public URL of the application | Yes |
+| `AWS_ACCESS_KEY_ID` | AWS credentials for S3 storage | For file uploads |
+| `AWS_SECRET_ACCESS_KEY` | AWS secret key | For file uploads |
+| `AWS_S3_UPLOAD_BUCKET_NAME` | S3 bucket name | For file uploads |
+
+### Docker Development
+
+For local development with Docker:
+
+```bash
+# Start services (PostgreSQL, Redis)
+docker-compose up -d
+
+# Run database migrations
+yarn db:migrate
+
+# Start the development server
+yarn dev
+```
+
+## Plugin Development
+
+### Plugin Structure
+
+Plugins are located in `plugins/` and follow this structure:
+
+```
+plugins/
+  └── my-plugin/
+      ├── client/           # React components
+      │   └── index.tsx     # Client entry point
+      ├── server/           # Koa routes and services
+      │   └── index.ts      # Server entry point
+      └── shared/           # Shared types and utilities
+```
+
+### Creating a New Plugin
+
+1. Create a new directory in `plugins/`
+2. Export a `PluginConfig` from `server/index.ts`:
+   ```typescript
+   import { PluginConfig } from "@server/types";
+
+   export default {
+     id: "my-plugin",
+     name: "My Plugin",
+     description: "What the plugin does",
+     // Optional hooks
+     hooks: {
+       document: {
+         beforeCreate: async (document) => { /* ... */ },
+       },
+     },
+   } satisfies PluginConfig;
+   ```
+
+3. Register routes in the server entry point if needed
+4. Export React components from `client/index.tsx` for UI integration
+
+### Available Hooks
+
+| Hook | Trigger |
+|------|---------|
+| `document.beforeCreate` | Before a document is created |
+| `document.afterCreate` | After a document is created |
+| `document.beforeUpdate` | Before a document is updated |
+| `user.afterCreate` | After a user is created |
+
+## Architecture Patterns
+
+### Command Pattern
+
+Commands encapsulate business logic and are located in `server/commands/`:
+
+```typescript
+// server/commands/documentCreator.ts
+export default async function documentCreator({
+  title,
+  user,
+  collection,
+}: Props): Promise<Document> {
+  // Validation
+  // Business logic
+  // Database operations
+  // Event emission
+  return document;
+}
+```
+
+Use commands for:
+- Operations that modify state
+- Multi-step business processes
+- Operations that need transaction handling
+
+### Presenter Pattern
+
+Presenters format data for API responses in `server/presenters/`:
+
+```typescript
+// server/presenters/document.ts
+export default function presentDocument(
+  document: Document,
+  options?: Options
+) {
+  return {
+    id: document.id,
+    title: document.title,
+    // ... only include fields the client needs
+  };
+}
+```
+
+Rules:
+- Never expose internal fields (like hashed passwords)
+- Keep response shapes consistent
+- Handle null/undefined gracefully
+
+### Policy Pattern (Authorization)
+
+Policies define what actions users can perform, using a cancan-style approach:
+
+```typescript
+// server/policies/document.ts
+allow(User, "read", Document, (user, document) => {
+  return document.collection.memberships.some(
+    m => m.userId === user.id
+  );
+});
+
+allow(User, "update", Document, (user, document) => {
+  return document.createdById === user.id ||
+         user.isAdmin;
+});
+```
+
+Check permissions in routes:
+```typescript
+authorize(user, "update", document);
+```
+
+## Debugging Tips
+
+### Common Debug Commands
+
+```bash
+# View server logs with more detail
+DEBUG=* yarn dev
+
+# Run a specific test file
+yarn test:server --testPathPattern="documentCreator"
+
+# Check TypeScript errors in watch mode
+yarn tsc --watch
+
+# Inspect database state
+yarn db:console
+```
+
+### Debugging WebSockets
+
+For real-time collaboration issues:
+1. Check browser DevTools → Network → WS tab
+2. Look for Y.js sync messages
+3. Verify Redis pub/sub is working
+
+### Database Debugging
+
+```bash
+# Connect to database
+yarn db:console
+
+# View recent migrations
+SELECT * FROM "SequelizeMeta" ORDER BY name DESC LIMIT 5;
+
+# Check indexes
+SELECT indexname, indexdef FROM pg_indexes WHERE tablename = 'documents';
+```
+
+## Common Pitfalls
+
+### ❌ Avoid These Mistakes
+
+1. **Don't use `any` or `unknown` types**
+   ```typescript
+   // Bad
+   const data: any = fetchData();
+
+   // Good
+   interface DataShape { id: string; name: string; }
+   const data: DataShape = fetchData();
+   ```
+
+2. **Don't forget transaction handling for multi-step operations**
+   ```typescript
+   // Bad - partial failure possible
+   await document.save();
+   await revision.save();
+
+   // Good - atomic operation
+   await sequelize.transaction(async (transaction) => {
+     await document.save({ transaction });
+     await revision.save({ transaction });
+   });
+   ```
+
+3. **Don't hardcode URLs or environment-specific values**
+   ```typescript
+   // Bad
+   const apiUrl = "https://app.getoutline.com/api";
+
+   // Good
+   const apiUrl = env.URL + "/api";
+   ```
+
+4. **Don't bypass the policy system for authorization**
+   ```typescript
+   // Bad - checking permissions manually
+   if (user.id === document.createdById) { ... }
+
+   // Good - use the policy system
+   authorize(user, "update", document);
+   ```
+
+5. **Don't create database queries without indexes**
+   - Always check if frequently-queried columns have indexes
+   - Add indexes in migrations for new columns used in WHERE clauses
+
+6. **Don't forget to handle async errors**
+   ```typescript
+   // Bad
+   async function handler() {
+     const result = await riskyOperation();
+   }
+
+   // Good
+   async function handler() {
+     try {
+       const result = await riskyOperation();
+     } catch (error) {
+       Logger.error("Operation failed", error);
+       throw new InternalError("Operation failed");
+     }
+   }
+   ```
+
+### ⚠️ Performance Gotchas
+
+1. **N+1 Queries**: Always use `include` for related data
+   ```typescript
+   // Bad - N+1 queries
+   const documents = await Document.findAll();
+   for (const doc of documents) {
+     const user = await doc.getCreatedBy();
+   }
+
+   // Good - single query with join
+   const documents = await Document.findAll({
+     include: [{ model: User, as: "createdBy" }],
+   });
+   ```
+
+2. **Missing Pagination**: Always paginate list endpoints
+   ```typescript
+   const { limit = 25, offset = 0 } = ctx.request.query;
+   const documents = await Document.findAll({ limit, offset });
+   ```
+
+3. **Unnecessary Re-renders**: Use React.memo and useMemo appropriately
+   ```typescript
+   const MemoizedComponent = React.memo(ExpensiveComponent);
+   const computedValue = useMemo(() => expensiveCalculation(data), [data]);
+   ```
+
+## Migration Best Practices
+
+### Creating Migrations
+
+```bash
+# Generate a new migration
+yarn db:create-migration --name add-column-to-documents
+```
+
+### Migration Guidelines
+
+1. **Always make migrations reversible**
+   ```typescript
+   export async function up(queryInterface) {
+     await queryInterface.addColumn("documents", "archived", {
+       type: DataTypes.BOOLEAN,
+       defaultValue: false,
+     });
+   }
+
+   export async function down(queryInterface) {
+     await queryInterface.removeColumn("documents", "archived");
+   }
+   ```
+
+2. **Test migrations locally before committing**
+   ```bash
+   yarn db:migrate        # Apply
+   yarn db:migrate:undo   # Rollback
+   yarn db:migrate        # Re-apply
+   ```
+
+3. **Handle data migrations carefully**
+   - For large tables, batch updates to avoid locks
+   - Consider running data migrations separately from schema changes
+
+4. **Add indexes concurrently for large tables**
+   ```typescript
+   await queryInterface.sequelize.query(
+     'CREATE INDEX CONCURRENTLY idx_documents_archived ON documents(archived)'
+   );
+   ```
