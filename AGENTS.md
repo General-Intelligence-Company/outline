@@ -1,195 +1,256 @@
-Outline is a fast, collaborative knowledge base built for teams. It's built with React and TypeScript in both frontend and backend, uses a real-time collaboration engine, and is designed for excellent performance and user experience. The backend is a Koa server with an RPC API and uses PostgreSQL and Redis. The application can be self-hosted or used as a cloud service.
+# Agents Guide - Outline Codebase
 
-There is a web client which is fully responsive and works on mobile devices.
+This document provides navigation and development guidance for AI agents and developers working with the Outline codebase.
 
-**Monorepo Structure:**
+## Navigation Guide
 
-- **`app/`** - React web application with MobX state management
-- **`server/`** - Koa API server with Sequelize ORM and background workers
-- **`shared/`** - Shared TypeScript types, utilities, and editor components
-- **`plugins/`** - Plugin system for extending functionality
-- **`public/`** - Static assets served directly
-- **Various config files** - TypeScript, Vite, Jest, Prettier, Oxlint configurations
+### Frontend Code (`/app`)
 
-Refer to /docs/ARCHITECTURE.md for detailed architecture documentation.
+| Directory | Purpose |
+|-----------|---------|
+| `/app/components` | Reusable UI components |
+| `/app/stores` | MobX state management stores |
+| `/app/scenes` | Page-level components (routes) |
+| `/app/hooks` | Custom React hooks |
+| `/app/menus` | Menu components and context menus |
+| `/app/models` | MobX data models |
+| `/app/routes` | Route definitions |
+| `/app/utils` | Frontend utility functions |
+| `/app/actions` | Action creators |
+| `/app/styles` | Global styles and themes |
 
-## Instructions
+### Backend Code (`/server`)
 
-You're an expert in the following areas:
+| Directory | Purpose |
+|-----------|---------|
+| `/server/routes` | API route handlers |
+| `/server/models` | Sequelize database models |
+| `/server/commands` | Business logic commands |
+| `/server/policies` | Authorization policies |
+| `/server/queues` | Background job processing |
+| `/server/middlewares` | Koa middleware |
+| `/server/presenters` | API response formatters |
+| `/server/services` | External service integrations |
+| `/server/migrations` | Database migrations |
+| `/server/emails` | Email templates |
+| `/server/collaboration` | Real-time collaboration logic |
 
-- TypeScript
-- React and React Router
-- MobX and MobX-React
-- Node.js and Koa
-- Sequelize ORM
-- PostgreSQL
-- Redis
-- HTML, CSS and Styled Components
-- Prosemirror (rich text editor)
-- WebSockets and real-time collaboration
+### Shared Code (`/shared`)
 
-## General Guidelines
+| Directory | Purpose |
+|-----------|---------|
+| `/shared/types` | TypeScript type definitions |
+| `/shared/utils` | Shared utility functions |
+| `/shared/editor` | ProseMirror editor components |
+| `/shared/i18n` | Internationalization (translations) |
 
-- Critical – Do not create new markdown (.md) files.
-- Use early returns for readability.
-- Emphasize type safety and static analysis.
-- Follow consistent Prettier formatting.
-- Do not replace smart quotes ("") or ('') with simple quotes ("").
-- Do not add translation strings manually; they will be extracted automatically from the codebase.
+### Plugins (`/plugins`)
 
-## Dependencies and Upgrading
+Each plugin is self-contained with its own routes, models, etc.
 
-- Use yarn for all dependency management.
-- After updating dependency versions, install to update lockfiles:
+| Category | Plugins |
+|----------|---------|
+| **Auth providers** | azure, google, oidc, slack, passkeys |
+| **Integrations** | discord, github, linear, notion, figma, zapier, webhooks |
+| **Analytics** | googleanalytics, matomo, umami |
+| **Features** | email, diagrams, iframely, storage, enterprise |
 
-```bash
-yarn install
-```
+## Testing Requirements
 
-## TypeScript Usage
+- **All new features must have tests**
+- Tests are collocated with source files (`*.test.ts`)
+- Do not create new test directories
 
-- Use strict mode.
-- Avoid "unknown" unless absolutely necessary.
-- Never use "any".
-- Prefer type definitions; avoid type assertions (as, !).
-- Always use curly braces for if statements.
-- Avoid # for private properties.
-- Prefer interface over type for object shapes.
+### Test Environments
 
-## Classes & Code Organization
+| Test Suite | Command | Environment |
+|------------|---------|-------------|
+| Frontend | `yarn test:app` | Jest with jsdom |
+| Backend | `yarn test:server` | Jest with Node + PostgreSQL |
+| Shared | `yarn test:shared` | Jest with Node and jsdom |
 
-### Class Member Order
-
-1. Public static variables
-2. Public static methods
-3. Public variables
-4. Public methods
-5. Protected variables & methods
-6. Private variables & methods
-
-### Exports
-
-- Exported members must appear at the top of the file.
-- Prefer named exports for components & classes.
-- Document ALL public/exported functions with JSDoc.
-
-## React Usage
-
-- Use functional components with hooks.
-- Event handlers should be prefixed with "handle", like "handleClick" for onClick.
-- Avoid unnecessary re-renders by using React.memo, useMemo, and useCallback appropriately.
-- Use descriptive prop types with TypeScript interfaces.
-- Do not import React unless it is used directly.
-- Use styled-components for component styling.
-- Ensure high accessibility (a11y) standards using ARIA roles and semantic HTML.
-
-## MobX State Management
-
-- Use MobX stores for global state management.
-- Keep stores in `app/stores/`.
-- Use `observable`, `action`, and `computed` decorators appropriately.
-- Prefer computed values over manual calculations in render.
-- Keep business logic in stores, not components.
-
-## Database & ORM
-
-- Use Sequelize models in `server/models/`.
-- Generate migrations with Sequelize CLI:
-
-```bash
-yarn sequelize migration:create --name=add-field-to-table
-```
-
-- Run migrations with `yarn db:migrate`.
-- Use transactions for multi-table operations.
-- Add appropriate indexes for query performance.
-- Always handle database errors gracefully.
-
-## API Design
-
-- RESTful endpoints under `/api/`.
-- Authentication endpoints under `/auth/`.
-- Use consistent error responses.
-- Validate request data using the validation middleware and schemas
-- Use presenters to format API responses.
-- Keep API routes thin, use model methods for business logic, or commands if logic spans multiple models.
-
-## Authentication & Authorization
-
-- JWT tokens for authentication.
-- Policies in `server/policies/` for authorization.
-- Use cancan-style ability checks.
-- Use authenticated middleware for protected routes.
-- Always verify user permissions before data access.
-
-## Real-time Collaboration
-
-- WebSocket connections for real-time updates.
-- Use Y.js for collaborative editing.
-- Handle connection state changes gracefully.
-
-## Documentation
-
-- All public/exported functions & classes must have JSDoc.
-- Include:
-  - Description
-  - @param and @return (start lowercase, end with period)
-  - @throws if applicable
-- Add a newline between the description and the @ block.
-- Use correct punctuation.
-
-## Testing
-
-- Run tests with Jest:
+### Running Tests
 
 ```bash
 # Run a specific test file (preferred)
-yarn test path/to/test.spec.ts
+yarn test path/to/file.test.ts
 
-# Run every test (avoid)
-yarn test
+# Run frontend tests
+yarn test:app
 
-# Run test suites (avoid)
-yarn test:app      # All frontend tests
-yarn test:server   # All backend tests
-yarn test:shared   # All shared code tests
+# Run backend tests (requires PostgreSQL)
+yarn test:server
+
+# Run shared code tests
+yarn test:shared
 ```
 
-- Write unit tests for utilities and business logic in a collocated .test.ts file.
-- Do not create new test directories
-- Mock external dependencies appropriately in **mocks** folder.
-- Aim for high code coverage but focus on critical paths.
+## Code Review Checklist
 
-## Code Quality
+1. **TypeScript types are properly defined**
+   - No `any` types unless absolutely necessary
+   - Use interfaces over type aliases for object shapes
+   - Avoid type assertions (`as`, `!`)
 
-- Use Oxlint for linting: `yarn lint`
-- Format code with Prettier: `yarn format`
-- Check types with TypeScript: `yarn tsc`
-- Pre-commit hooks run automatically via Husky.
-- Fix linting issues before committing.
+2. **Linting passes**
+   - Run `yarn lint` before committing
+   - OxLint will auto-fix some issues via pre-commit hook
 
-## Error Handling
+3. **Prettier formatting applied**
+   - Run `yarn format` or let pre-commit hook handle it
+   - printWidth: 80, trailingComma: es5
 
-- Use custom error classes in `server/errors.ts`.
-- Always catch and handle errors appropriately.
-- Log errors with appropriate context.
-- Return user-friendly error messages.
-- Never expose sensitive information in errors.
+4. **Tests added for new functionality**
+   - Collocate tests with source files
+   - Mock external dependencies in `__mocks__` folder
 
-## Performance
+5. **Translations added for user-facing strings**
+   - Do not add translation strings manually
+   - They are extracted automatically via pre-commit hook
 
-- Use React.memo for expensive components.
-- Implement pagination for large lists.
-- Use database indexes effectively.
-- Cache expensive computations.
-- Monitor performance with appropriate tools.
-- Lazy load routes and components where appropriate.
+6. **Migrations are reversible**
+   - Include both `up` and `down` methods
+   - Test rollback with `yarn db:rollback`
 
-## Security
+7. **Type checking passes**
+   - Run `yarn tsc` to verify no type errors
 
-- Sanitize all user input.
-- Use CSRF protection.
-- Use rateLimiter middleware for sensitive endpoints.
-- Follow OWASP guidelines.
-- Never store sensitive data in plain text.
-- Use environment variables for secrets.
+## Common Pitfalls
+
+### Database Changes
+- Don't forget to run migrations when adding database changes
+- Use `yarn db:create-migration` to generate migration files
+- Always test rollback functionality
+
+### MobX State Management
+- Stores must use `@observable` and `@action` decorators
+- Use `@computed` for derived values
+- Keep business logic in stores, not components
+
+### Path Aliases
+- Use `@server/*` for server imports
+- Use `@shared/*` for shared imports
+- Use `~/*` for app (frontend) imports
+
+### Pre-commit Hooks
+- Husky runs automatically on commit
+- Will auto-fix linting and formatting issues
+- Extracts i18n translations automatically
+
+### Backend Tests
+- Require a running PostgreSQL instance
+- CI uses PostgreSQL service container
+- Set up local PostgreSQL for development testing
+
+### React Patterns
+- Use functional components with hooks
+- Prefix event handlers with "handle" (e.g., `handleClick`)
+- Use `React.memo`, `useMemo`, `useCallback` to prevent re-renders
+
+## Plugin Development
+
+### Plugin Structure
+
+Plugins are located in `/plugins` directory. Each plugin can export:
+- `server.ts` - Server-side functionality (routes, models, commands)
+- `client.ts` - Client-side functionality (components, stores)
+
+### Creating a Plugin
+
+1. Create a new directory in `/plugins`
+2. Export server functionality via `server.ts`
+3. Export client functionality via `client.ts`
+4. Register the plugin in the main plugin loader
+
+### Existing Plugin Categories
+
+- **Auth plugins**: Handle authentication providers
+- **Integration plugins**: Connect with external services
+- **Analytics plugins**: Track usage and metrics
+- **Storage plugins**: Handle file storage (S3, local)
+
+## Key Dependencies
+
+| Package | Version | Purpose |
+|---------|---------|---------|
+| React | 17 | UI framework (not 18 yet) |
+| Koa.js | - | HTTP server framework |
+| Sequelize | - | PostgreSQL ORM |
+| MobX | - | State management |
+| ProseMirror | - | Rich text editing |
+| Y.js | - | Real-time collaboration |
+| styled-components | - | CSS-in-JS styling |
+| Jest | 30 | Testing framework |
+| Vite | - | Build tooling |
+
+## CI/CD Pipeline
+
+### GitHub Actions Workflow
+
+Location: `.github/workflows/ci.yml`
+
+### Pipeline Stages
+
+```
+setup → lint → types → changes → test/test-server → bundle-size
+```
+
+| Job | Description |
+|-----|-------------|
+| `setup` | Install dependencies with caching |
+| `lint` | Run OxLint (`yarn lint --quiet`) |
+| `types` | TypeScript type checking (`yarn tsc`) |
+| `changes` | Detect which files changed (app, server, config) |
+| `test` | Frontend tests (runs if app files changed) |
+| `test-server` | Backend tests with PostgreSQL (4 shards, runs if server changed) |
+| `bundle-size` | Bundle analysis with RelativeCI |
+
+### CI Services
+
+- **PostgreSQL 14.2**: Used for backend tests
+- **Docker**: Multi-arch image builds (ARM64, AMD64)
+
+### Other Workflows
+
+| Workflow | Purpose |
+|----------|---------|
+| `docker.yml` | Build and publish Docker images on tags |
+| `codeql-analysis.yml` | Security scanning |
+| `stale.yml` | Auto-close stale issues/PRs |
+
+## Quick Reference
+
+### Essential Commands
+
+```bash
+# Development
+yarn dev:watch          # Start dev server
+
+# Quality Checks
+yarn lint               # Run linter
+yarn format             # Format code
+yarn tsc                # Type check
+
+# Testing
+yarn test:app           # Frontend tests
+yarn test:server        # Backend tests
+
+# Database
+yarn db:migrate         # Run migrations
+yarn db:rollback        # Rollback migration
+```
+
+### File Patterns
+
+- Source files: `*.ts`, `*.tsx`
+- Test files: `*.test.ts` (collocated with source)
+- Styles: styled-components (inline)
+- Translations: Auto-extracted via i18next
+
+### Import Aliases
+
+```typescript
+import { something } from "@server/models";   // Server code
+import { something } from "@shared/utils";    // Shared code
+import { something } from "~/components";     // App code
+```
