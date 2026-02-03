@@ -10,6 +10,7 @@
     "*.d.ts"
   ],
   "rules": {
+    "complexity": ["warn", { "max": 15 }],
     "for-direction": "error",
     "no-async-promise-executor": "error",
     "no-case-declarations": "error",

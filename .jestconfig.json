@@ -2,6 +2,24 @@
   "workerIdleMemoryLimit": "0.75",
   "maxWorkers": "50%",
   "transformIgnorePatterns": ["node_modules/(?!(franc|trigram-utils)/)"],
+  "collectCoverageFrom": [
+    "app/**/*.{ts,tsx}",
+    "server/**/*.{ts,tsx}",
+    "shared/**/*.{ts,tsx}",
+    "!**/*.d.ts",
+    "!**/node_modules/**",
+    "!**/test/**",
+    "!**/__mocks__/**",
+    "!**/migrations/**"
+  ],
+  "coverageThreshold": {
+    "global": {
+      "branches": 60,
+      "functions": 60,
+      "lines": 60,
+      "statements": 60
+    }
+  },
   "projects": [
     {
       "displayName": "server",

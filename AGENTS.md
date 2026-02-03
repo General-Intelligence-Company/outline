@@ -1,62 +1,123 @@
-Outline is a fast, collaborative knowledge base built for teams. It's built with React and TypeScript in both frontend and backend, uses a real-time collaboration engine, and is designed for excellent performance and user experience. The backend is a Koa server with an RPC API and uses PostgreSQL and Redis. The application can be self-hosted or used as a cloud service.
+# AI Coding Agent Guidelines
 
-There is a web client which is fully responsive and works on mobile devices.
+This document provides guidelines for AI coding agents working on the Outline codebase. It complements CLAUDE.md with additional context for automated code generation and review.
 
-**Monorepo Structure:**
+## Project Overview
 
-- **`app/`** - React web application with MobX state management
-- **`server/`** - Koa API server with Sequelize ORM and background workers
-- **`shared/`** - Shared TypeScript types, utilities, and editor components
-- **`plugins/`** - Plugin system for extending functionality
-- **`public/`** - Static assets served directly
-- **Various config files** - TypeScript, Vite, Jest, Prettier, Oxlint configurations
+Outline is a fast, collaborative knowledge base for teams, built with:
+- **Frontend**: React + TypeScript + MobX + Styled Components
+- **Backend**: Koa + Sequelize ORM + PostgreSQL + Redis
+- **Real-time**: WebSockets + Y.js for collaborative editing
 
-Refer to /docs/ARCHITECTURE.md for detailed architecture documentation.
+## Codebase Navigation
 
-## Instructions
+### Key Directories
 
-You're an expert in the following areas:
+```
+app/                    # React frontend application
+├── actions/           # Reusable actions (navigate, create entities)
+├── components/        # Shared React components
+├── editor/            # Editor-specific components
+├── hooks/             # Custom React hooks
+├── menus/             # Context menus
+├── models/            # MobX observable models
+├── routes/            # Route definitions (lazy-loaded)
+├── scenes/            # Full-page view components
+├── stores/            # MobX stores and fetch logic
+├── types/             # TypeScript type definitions
+└── utils/             # Frontend utility methods
 
-- TypeScript
-- React and React Router
-- MobX and MobX-React
-- Node.js and Koa
-- Sequelize ORM
-- PostgreSQL
-- Redis
-- HTML, CSS and Styled Components
-- Prosemirror (rich text editor)
-- WebSockets and real-time collaboration
+server/                 # Koa backend server
+├── routes/            # API and auth routes
+│   ├── api/          # RESTful API endpoints
+│   └── auth/         # Authentication routes
+├── commands/          # Multi-model business logic
+├── emails/            # Email templates
+├── middlewares/       # Koa middlewares
+├── migrations/        # Database migrations
+├── models/            # Sequelize models
+├── policies/          # Authorization (cancan-style)
+├── presenters/        # JSON response formatters
+├── queues/            # Async job processing
+│   ├── processors/   # Event bus processors
+│   └── tasks/        # Standalone async tasks
+└── utils/             # Backend utilities
 
-## General Guidelines
+shared/                 # Code shared between frontend/backend
+├── components/        # Shared React components
+├── editor/            # Prosemirror editor core
+├── i18n/              # Internationalization
+├── styles/            # Global styles and colors
+└── utils/             # Shared utilities
 
-- Critical – Do not create new markdown (.md) files.
-- Use early returns for readability.
-- Emphasize type safety and static analysis.
-- Follow consistent Prettier formatting.
-- Do not replace smart quotes ("") or ('') with simple quotes ("").
-- Do not add translation strings manually; they will be extracted automatically from the codebase.
-
-## Dependencies and Upgrading
-
-- Use yarn for all dependency management.
-- After updating dependency versions, install to update lockfiles:
-
-```bash
-yarn install
+plugins/                # Plugin system extensions
 ```
 
-## TypeScript Usage
+### Finding Code
 
-- Use strict mode.
-- Avoid "unknown" unless absolutely necessary.
-- Never use "any".
-- Prefer type definitions; avoid type assertions (as, !).
-- Always use curly braces for if statements.
-- Avoid # for private properties.
-- Prefer interface over type for object shapes.
+- **Components**: Start in `app/components/` for reusable UI
+- **Pages/Views**: Check `app/scenes/` for full-page components
+- **API Endpoints**: Look in `server/routes/api/`
+- **Database Models**: Found in `server/models/`
+- **State Management**: MobX stores in `app/stores/`
+- **Editor Logic**: Prosemirror code in `shared/editor/`
 
-## Classes & Code Organization
+## Pre-Commit Requirements
+
+Before committing any changes, ensure all checks pass:
+
+```bash
+# Required checks (run all before committing)
+yarn lint          # Oxlint - must pass with no errors
+yarn format        # Prettier - auto-formats code
+yarn tsc           # TypeScript - must compile without errors
+yarn test          # Jest - all tests must pass
+
+# Run specific test file (preferred for development)
+yarn test path/to/file.test.ts
+```
+
+## Code Standards
+
+### TypeScript Rules
+
+- **Strict mode** is enforced
+- **Never use `any`** - use proper types or generics
+- **Avoid `unknown`** unless absolutely necessary
+- **No type assertions** (`as`, `!`) - prefer type guards
+- **Always use curly braces** for if/else statements
+- **Prefer `interface`** over `type` for object shapes
+
+### React Patterns
+
+```typescript
+// ✅ Correct: Functional component with typed props
+interface ButtonProps {
+  onClick: () => void;
+  disabled?: boolean;
+  children: React.ReactNode;
+}
+
+export function Button({ onClick, disabled, children }: ButtonProps) {
+  const handleClick = () => {
+    onClick();
+  };
+
+  return (
+    <StyledButton onClick={handleClick} disabled={disabled}>
+      {children}
+    </StyledButton>
+  );
+}
+
+// ❌ Incorrect: Class component, any types, missing interface
+export class Button extends React.Component<any> { ... }
+```
+
+### Event Handler Naming
+
+- Prefix with `handle`: `handleClick`, `handleSubmit`, `handleChange`
+- Match the event: `onClick` → `handleClick`
 
 ### Class Member Order
 
@@ -69,127 +130,183 @@ yarn install
 
 ### Exports
 
-- Exported members must appear at the top of the file.
-- Prefer named exports for components & classes.
-- Document ALL public/exported functions with JSDoc.
+- Exported members at the **top** of the file
+- Prefer **named exports** for components and classes
+- **JSDoc required** for all public/exported functions
 
-## React Usage
+## Testing Requirements
 
-- Use functional components with hooks.
-- Event handlers should be prefixed with "handle", like "handleClick" for onClick.
-- Avoid unnecessary re-renders by using React.memo, useMemo, and useCallback appropriately.
-- Use descriptive prop types with TypeScript interfaces.
-- Do not import React unless it is used directly.
-- Use styled-components for component styling.
-- Ensure high accessibility (a11y) standards using ARIA roles and semantic HTML.
+### Test File Location
 
-## MobX State Management
+- Tests are **co-located** with source files
+- Name pattern: `*.test.ts` or `*.test.tsx`
+- Do **not** create new test directories
 
-- Use MobX stores for global state management.
-- Keep stores in `app/stores/`.
-- Use `observable`, `action`, and `computed` decorators appropriately.
-- Prefer computed values over manual calculations in render.
-- Keep business logic in stores, not components.
-
-## Database & ORM
-
-- Use Sequelize models in `server/models/`.
-- Generate migrations with Sequelize CLI:
+### Running Tests
 
 ```bash
-yarn sequelize migration:create --name=add-field-to-table
+# Preferred: Run specific test file
+yarn test server/models/User.test.ts
+
+# Test suites (use sparingly)
+yarn test:app      # Frontend tests
+yarn test:server   # Backend tests
+yarn test:shared   # Shared code tests
 ```
 
-- Run migrations with `yarn db:migrate`.
-- Use transactions for multi-table operations.
-- Add appropriate indexes for query performance.
-- Always handle database errors gracefully.
+### Test Coverage
 
-## API Design
+- Minimum **60%** coverage required for branches, functions, lines, statements
+- Focus on **critical paths** and business logic
+- Mock external dependencies in `__mocks__/` folder
 
-- RESTful endpoints under `/api/`.
-- Authentication endpoints under `/auth/`.
-- Use consistent error responses.
-- Validate request data using the validation middleware and schemas
-- Use presenters to format API responses.
-- Keep API routes thin, use model methods for business logic, or commands if logic spans multiple models.
+## Code Review Checklist
 
-## Authentication & Authorization
+Before submitting code, verify:
 
-- JWT tokens for authentication.
-- Policies in `server/policies/` for authorization.
-- Use cancan-style ability checks.
-- Use authenticated middleware for protected routes.
-- Always verify user permissions before data access.
+### Functionality
+- [ ] Code compiles without errors (`yarn tsc`)
+- [ ] All tests pass (`yarn test`)
+- [ ] No linting errors (`yarn lint`)
+- [ ] Code is properly formatted (`yarn format`)
 
-## Real-time Collaboration
+### Code Quality
+- [ ] No `any` types used
+- [ ] Proper error handling implemented
+- [ ] JSDoc comments on public functions
+- [ ] Early returns used for readability
+- [ ] No console.log statements (use proper logging)
 
-- WebSocket connections for real-time updates.
-- Use Y.js for collaborative editing.
-- Handle connection state changes gracefully.
+### Security
+- [ ] User input is sanitized
+- [ ] Authorization checks in place (policies)
+- [ ] No sensitive data exposed in errors
+- [ ] Rate limiting on sensitive endpoints
 
-## Documentation
+### Performance
+- [ ] Database queries use appropriate indexes
+- [ ] React components use memoization where needed
+- [ ] Large lists implement pagination
+- [ ] No N+1 query problems
 
-- All public/exported functions & classes must have JSDoc.
-- Include:
-  - Description
-  - @param and @return (start lowercase, end with period)
-  - @throws if applicable
-- Add a newline between the description and the @ block.
-- Use correct punctuation.
+## Common Pitfalls
 
-## Testing
+### Avoid These Mistakes
 
-- Run tests with Jest:
+1. **Creating new markdown files** - The project specifically prohibits this
+2. **Using `any` types** - Always define proper types
+3. **Forgetting JSDoc** - All exports need documentation
+4. **Smart quote replacement** - Don't replace `""` or `''` with `""`
+5. **Manual translation strings** - They're extracted automatically
+6. **Using `#` for private properties** - Use TypeScript `private` keyword
+7. **Skipping pre-commit hooks** - Always run `yarn lint`, `yarn format`, `yarn tsc`
 
-```bash
-# Run a specific test file (preferred)
-yarn test path/to/test.spec.ts
+### Database Operations
 
-# Run every test (avoid)
-yarn test
+```typescript
+// ✅ Use transactions for multi-table operations
+await sequelize.transaction(async (transaction) => {
+  await User.create({ name: "test" }, { transaction });
+  await Team.create({ userId: user.id }, { transaction });
+});
 
-# Run test suites (avoid)
-yarn test:app      # All frontend tests
-yarn test:server   # All backend tests
-yarn test:shared   # All shared code tests
+// ❌ Don't perform multi-table operations without transactions
+await User.create({ name: "test" });
+await Team.create({ userId: user.id }); // May fail, leaving orphaned User
 ```
 
-- Write unit tests for utilities and business logic in a collocated .test.ts file.
-- Do not create new test directories
-- Mock external dependencies appropriately in **mocks** folder.
-- Aim for high code coverage but focus on critical paths.
+### MobX State
 
-## Code Quality
+```typescript
+// ✅ Keep business logic in stores
+class DocumentStore {
+  @action
+  async fetchDocument(id: string) {
+    const doc = await client.get(`/api/documents/${id}`);
+    this.add(doc);
+  }
+}
 
-- Use Oxlint for linting: `yarn lint`
-- Format code with Prettier: `yarn format`
-- Check types with TypeScript: `yarn tsc`
-- Pre-commit hooks run automatically via Husky.
-- Fix linting issues before committing.
+// ❌ Don't put business logic in components
+function DocumentView() {
+  useEffect(() => {
+    fetch(`/api/documents/${id}`).then(...); // Move to store
+  }, []);
+}
+```
+
+## Integration Points
+
+### Adding New API Endpoints
+
+1. Create route in `server/routes/api/`
+2. Add validation schema
+3. Create/update policy in `server/policies/`
+4. Add presenter in `server/presenters/`
+5. Write tests in co-located `.test.ts` file
+
+### Adding New React Components
+
+1. Create component in appropriate directory
+2. Use styled-components for styling
+3. Define TypeScript interface for props
+4. Add JSDoc documentation
+5. Implement accessibility (ARIA roles, semantic HTML)
+6. Write tests in co-located `.test.tsx` file
+
+### Database Changes
+
+1. Generate migration: `yarn sequelize migration:create --name=description`
+2. Update model in `server/models/`
+3. Run migration: `yarn db:migrate`
+4. Add appropriate indexes
+5. Update related tests
 
 ## Error Handling
 
-- Use custom error classes in `server/errors.ts`.
-- Always catch and handle errors appropriately.
-- Log errors with appropriate context.
-- Return user-friendly error messages.
-- Never expose sensitive information in errors.
+```typescript
+// Use custom error classes from server/errors.ts
+import { NotFoundError, ValidationError } from "@server/errors";
 
-## Performance
+// ✅ Proper error handling
+async function getDocument(id: string) {
+  const document = await Document.findByPk(id);
+  if (!document) {
+    throw NotFoundError("Document not found");
+  }
+  return document;
+}
 
-- Use React.memo for expensive components.
-- Implement pagination for large lists.
-- Use database indexes effectively.
-- Cache expensive computations.
-- Monitor performance with appropriate tools.
-- Lazy load routes and components where appropriate.
+// ✅ Graceful error responses
+router.get("/documents/:id", async (ctx) => {
+  try {
+    ctx.body = await getDocument(ctx.params.id);
+  } catch (error) {
+    if (error instanceof NotFoundError) {
+      ctx.status = 404;
+      ctx.body = { error: error.message };
+    } else {
+      throw error; // Let middleware handle unexpected errors
+    }
+  }
+});
+```
 
-## Security
+## Quick Reference
 
-- Sanitize all user input.
-- Use CSRF protection.
-- Use rateLimiter middleware for sensitive endpoints.
-- Follow OWASP guidelines.
-- Never store sensitive data in plain text.
-- Use environment variables for secrets.
+| Task | Command |
+|------|---------|
+| Install dependencies | `yarn install` |
+| Run linter | `yarn lint` |
+| Format code | `yarn format` |
+| Type check | `yarn tsc` |
+| Run all tests | `yarn test` |
+| Run specific test | `yarn test path/to/file.test.ts` |
+| Create migration | `yarn sequelize migration:create --name=name` |
+| Run migrations | `yarn db:migrate` |
+
+## Additional Resources
+
+- Architecture details: `/docs/ARCHITECTURE.md`
+- Coding standards: `/CLAUDE.md`
+- API documentation: https://getoutline.com/developers
