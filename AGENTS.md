@@ -1,3 +1,5 @@
+# AI Agent Guidelines for Outline
+
 Outline is a fast, collaborative knowledge base built for teams. It's built with React and TypeScript in both frontend and backend, uses a real-time collaboration engine, and is designed for excellent performance and user experience. The backend is a Koa server with an RPC API and uses PostgreSQL and Redis. The application can be self-hosted or used as a cloud service.
 
 There is a web client which is fully responsive and works on mobile devices.
@@ -12,6 +14,67 @@ There is a web client which is fully responsive and works on mobile devices.
 - **Various config files** - TypeScript, Vite, Jest, Prettier, Oxlint configurations
 
 Refer to /docs/ARCHITECTURE.md for detailed architecture documentation.
+
+---
+
+## Quick Reference
+
+### Key Commands
+
+```bash
+# Development
+yarn dev:watch              # Start full dev environment (backend + frontend)
+yarn dev:backend            # Backend only with hot reload
+yarn vite:dev               # Frontend only (Vite dev server)
+
+# Testing
+yarn test path/to/file.test.ts  # Run specific test (preferred)
+yarn test:app                   # Frontend tests only
+yarn test:server                # Backend tests only
+yarn test:shared                # Shared code tests
+
+# Code Quality
+yarn lint                   # Run Oxlint
+yarn format                 # Run Prettier
+yarn tsc                    # TypeScript type checking
+
+# Database
+yarn db:migrate             # Run migrations
+yarn db:rollback            # Rollback last migration
+yarn db:create-migration    # Create new migration
+
+# Build
+yarn build                  # Full production build
+```
+
+### Navigation Guide
+
+| What you're looking for | Where to find it |
+|-------------------------|------------------|
+| React components | `app/components/` |
+| Full-page views | `app/scenes/` |
+| Frontend state/stores | `app/stores/` |
+| Frontend models | `app/models/` |
+| API routes | `server/routes/api/` |
+| Database models | `server/models/` |
+| Authorization policies | `server/policies/` |
+| Database migrations | `server/migrations/` |
+| Shared utilities | `shared/utils/` |
+| Editor implementation | `shared/editor/` |
+| Plugin implementations | `plugins/<name>/` |
+| Test factories | `server/test/factories.ts` |
+| Custom errors | `server/errors.ts` |
+| Email templates | `server/emails/templates/` |
+
+### TypeScript Path Aliases
+
+```typescript
+import { User } from "@server/models/User";     // server/*
+import { formatDate } from "@shared/utils/date"; // shared/*
+import { useStores } from "~/stores";            // app/*
+```
+
+---
 
 ## Instructions
 
@@ -140,23 +203,43 @@ yarn sequelize migration:create --name=add-field-to-table
 
 ## Testing
 
-- Run tests with Jest:
+### Test Organization
+
+Tests are **collocated** with source files (`.test.ts` next to the source file).
 
 ```bash
-# Run a specific test file (preferred)
-yarn test path/to/test.spec.ts
+# Always run specific tests, not the entire suite
+yarn test path/to/feature.test.ts
 
-# Run every test (avoid)
-yarn test
+# Example: Testing a model
+yarn test server/models/User.test.ts
+```
 
-# Run test suites (avoid)
-yarn test:app      # All frontend tests
-yarn test:server   # All backend tests
-yarn test:shared   # All shared code tests
+### Jest Configuration
+
+Four test projects are configured:
+- `server` – Backend tests (Node environment)
+- `app` – Frontend tests (jsdom environment)
+- `shared-node` – Shared code in Node
+- `shared-jsdom` – Shared code in browser
+
+### Writing Tests
+
+```typescript
+// Use factories for test data
+import { buildUser, buildDocument } from "@server/test/factories";
+
+describe("Feature", () => {
+  it("should do something", async () => {
+    const user = await buildUser();
+    const document = await buildDocument({ userId: user.id });
+    // Test logic here
+  });
+});
 ```
 
 - Write unit tests for utilities and business logic in a collocated .test.ts file.
-- Do not create new test directories
+- Do not create new test directories.
 - Mock external dependencies appropriately in **mocks** folder.
 - Aim for high code coverage but focus on critical paths.
 
@@ -193,3 +276,299 @@ yarn test:shared   # All shared code tests
 - Follow OWASP guidelines.
 - Never store sensitive data in plain text.
 - Use environment variables for secrets.
+
+---
+
+## Code Review Checklist
+
+### TypeScript
+
+- [ ] No `any` types used (use proper types or `unknown` with type guards)
+- [ ] No type assertions (`as`, `!`) unless absolutely necessary
+- [ ] Interfaces used for object shapes (not `type`)
+- [ ] Strict mode compliance
+
+### React Components
+
+- [ ] Functional components with hooks
+- [ ] Event handlers prefixed with `handle` (e.g., `handleClick`)
+- [ ] Props defined with TypeScript interfaces
+- [ ] Styled-components used for styling
+- [ ] Accessibility attributes included (ARIA roles, semantic HTML)
+- [ ] React.memo, useMemo, useCallback used where appropriate
+
+### Backend Code
+
+- [ ] API routes are thin (business logic in models/commands)
+- [ ] Policies used for authorization checks
+- [ ] Presenters used for API responses
+- [ ] Transactions used for multi-model operations
+- [ ] Custom error classes used from `server/errors.ts`
+
+### Documentation
+
+- [ ] JSDoc for all public/exported functions
+- [ ] Description, @param, @return included
+- [ ] @throws documented if applicable
+
+### General
+
+- [ ] No `console.log` or debug statements
+- [ ] No hardcoded secrets or credentials
+- [ ] Smart quotes preserved (not converted to simple quotes)
+- [ ] Early returns used for readability
+- [ ] Curly braces used for all if statements
+
+---
+
+## Common Pitfalls
+
+### Avoid These Mistakes
+
+1. **Creating markdown files**: Never create new `.md` files unless explicitly requested
+2. **Manual translation strings**: Translations are auto-extracted; don't add manually
+3. **Using `any`**: Always use proper types
+4. **Forgetting transactions**: Multi-model operations need transactions
+5. **Skipping authorization**: Always check policies before data access
+6. **Large test suites**: Run specific tests, not `yarn test` for everything
+7. **Ignoring type errors**: Fix all TypeScript errors before committing
+
+### Common Patterns
+
+#### MobX Store Pattern
+
+```typescript
+// app/stores/ExampleStore.ts
+import { observable, action, computed } from "mobx";
+import RootStore from "./RootStore";
+
+export default class ExampleStore {
+  @observable data: Item[] = [];
+
+  constructor(rootStore: RootStore) {
+    this.rootStore = rootStore;
+  }
+
+  @action
+  addItem = (item: Item) => {
+    this.data.push(item);
+  };
+
+  @computed
+  get itemCount() {
+    return this.data.length;
+  }
+}
+```
+
+#### API Route Pattern
+
+```typescript
+// server/routes/api/example.ts
+router.post("example.create", auth(), async (ctx) => {
+  const { name } = ctx.request.body;
+  const { user } = ctx.state.auth;
+
+  authorize(user, "create", Example);
+
+  const example = await Example.create({ name, userId: user.id });
+
+  ctx.body = {
+    data: presentExample(example),
+  };
+});
+```
+
+#### Policy Pattern
+
+```typescript
+// server/policies/example.ts
+allow(User, "read", Example, (user, example) =>
+  user.teamId === example.teamId
+);
+
+allow(User, "update", Example, (user, example) =>
+  example.userId === user.id
+);
+```
+
+---
+
+## Key Dependencies
+
+| Category | Package | Purpose |
+|----------|---------|---------|
+| Frontend | React 17 | UI framework |
+| State | MobX 4 | State management |
+| Routing | React Router 5 | Client-side routing |
+| Styling | Styled Components 5 | Component styling |
+| Backend | Koa 3 | HTTP server |
+| ORM | Sequelize 6 | Database ORM |
+| Queue | Bull | Job queue |
+| WebSocket | Socket.io 4 | Real-time updates |
+| Editor | Prosemirror | Rich text editor |
+| Collaboration | Y.js | CRDT-based sync |
+| Database | PostgreSQL | Primary database |
+| Cache | Redis | Caching and queues |
+
+---
+
+## Example Workflows
+
+### Adding a New Feature
+
+1. **Plan the feature**
+   - Identify affected components (frontend, backend, shared)
+   - Check existing patterns in similar features
+
+2. **Backend changes** (if needed)
+   - Create/modify models in `server/models/`
+   - Add migration: `yarn db:create-migration --name=feature-name`
+   - Add API routes in `server/routes/api/`
+   - Create policies in `server/policies/`
+   - Add presenter in `server/presenters/`
+
+3. **Frontend changes**
+   - Add/modify stores in `app/stores/`
+   - Add/modify models in `app/models/`
+   - Create components in `app/components/`
+   - Create scenes in `app/scenes/`
+   - Add routes in `app/routes/`
+
+4. **Testing**
+   - Add tests collocated with source files
+   - Run `yarn test path/to/feature.test.ts`
+
+5. **Quality checks**
+   - `yarn lint` – Check linting
+   - `yarn tsc` – Check types
+   - `yarn format` – Format code
+
+### Fixing a Bug
+
+1. **Reproduce the issue**
+   - Understand the expected vs actual behavior
+   - Identify the affected code path
+
+2. **Locate the bug**
+   - Use grep/search to find relevant files
+   - Check related tests for context
+
+3. **Fix the issue**
+   - Make minimal, focused changes
+   - Preserve existing patterns and styles
+
+4. **Add regression test**
+   - Write a test that would have caught the bug
+   - Place test file next to the source file
+
+5. **Verify the fix**
+   - Run affected tests
+   - Run lint and type checks
+
+### Adding an API Endpoint
+
+1. **Create the route** in `server/routes/api/<resource>.ts`
+
+2. **Add validation** using the validation middleware
+
+3. **Check authorization** with policies
+
+4. **Implement business logic** in model methods or commands
+
+5. **Format response** with a presenter
+
+6. **Add tests** in a collocated test file
+
+### Modifying the Database Schema
+
+1. **Create migration**
+   ```bash
+   yarn db:create-migration --name=describe-change
+   ```
+
+2. **Edit migration file** in `server/migrations/`
+
+3. **Update model** in `server/models/`
+
+4. **Run migration**
+   ```bash
+   yarn db:migrate
+   ```
+
+5. **Test thoroughly** – schema changes can have wide impact
+
+---
+
+## Backend Services
+
+| Service | Description | Required |
+|---------|-------------|----------|
+| `web` | Main API server | Yes |
+| `worker` | Background job processor | Yes |
+| `websockets` | Real-time updates | No |
+| `collaboration` | Document collaboration | No |
+| `cron` | Scheduled tasks | No |
+| `admin` | Queue debugging UI | Dev only |
+
+---
+
+## Plugin Development
+
+Plugins extend Outline's functionality. Each plugin has:
+
+```
+plugins/<name>/
+├── plugin.json      # Plugin metadata
+├── client/          # Frontend components
+├── server/          # Backend routes/logic
+└── shared/          # Shared code
+```
+
+Example `plugin.json`:
+```json
+{
+  "id": "my-plugin",
+  "name": "My Plugin",
+  "description": "Plugin description",
+  "priority": 100
+}
+```
+
+---
+
+## Debugging Tips
+
+### Frontend Debugging
+
+- Use React DevTools for component inspection
+- Use MobX DevTools for state debugging
+- Check browser console for errors
+- Use `yarn vite:dev` for hot reload during development
+
+### Backend Debugging
+
+- Use `--inspect=0.0.0.0` flag for Node.js debugging
+- Check `server/errors.ts` for custom error types
+- Use Winston logger for structured logging
+- Check Redis and PostgreSQL connections if services fail
+
+### Common Issues
+
+| Issue | Solution |
+|-------|----------|
+| Database connection fails | Check `.env` for correct `DATABASE_URL` |
+| Redis connection fails | Ensure Redis is running, check `REDIS_URL` |
+| Type errors | Run `yarn tsc` to identify issues |
+| Tests fail | Check test setup files and mock configurations |
+| Build fails | Clear `build/` directory and try again |
+
+---
+
+## Additional Resources
+
+- **Architecture docs**: `/docs/ARCHITECTURE.md`
+- **Services docs**: `/docs/SERVICES.md`
+- **API documentation**: https://getoutline.com/developers
+- **Translation guide**: `/docs/TRANSLATION.md`
+- **Security policy**: `/docs/SECURITY.md`

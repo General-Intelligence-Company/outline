@@ -2,6 +2,14 @@
   "workerIdleMemoryLimit": "0.75",
   "maxWorkers": "50%",
   "transformIgnorePatterns": ["node_modules/(?!(franc|trigram-utils)/)"],
+  "coverageThreshold": {
+    "global": {
+      "statements": 60,
+      "branches": 50,
+      "functions": 60,
+      "lines": 60
+    }
+  },
   "projects": [
     {
       "displayName": "server",
