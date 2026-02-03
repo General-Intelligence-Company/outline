@@ -1,195 +1,284 @@
-Outline is a fast, collaborative knowledge base built for teams. It's built with React and TypeScript in both frontend and backend, uses a real-time collaboration engine, and is designed for excellent performance and user experience. The backend is a Koa server with an RPC API and uses PostgreSQL and Redis. The application can be self-hosted or used as a cloud service.
+# AI Agent Guidelines for Outline
 
-There is a web client which is fully responsive and works on mobile devices.
+This document provides guidance for AI agents working on the Outline codebase. Outline is a fast, collaborative knowledge base built for teams.
 
-**Monorepo Structure:**
+## Project Overview
 
-- **`app/`** - React web application with MobX state management
-- **`server/`** - Koa API server with Sequelize ORM and background workers
-- **`shared/`** - Shared TypeScript types, utilities, and editor components
-- **`plugins/`** - Plugin system for extending functionality
-- **`public/`** - Static assets served directly
-- **Various config files** - TypeScript, Vite, Jest, Prettier, Oxlint configurations
+Outline is a TypeScript monorepo containing:
 
-Refer to /docs/ARCHITECTURE.md for detailed architecture documentation.
+- **Frontend**: React web application with MobX state management
+- **Backend**: Koa API server with Sequelize ORM, PostgreSQL, and Redis
+- **Real-time**: WebSocket-based collaboration using Y.js
+- **Editor**: Prosemirror-based rich text editor
 
-## Instructions
+## Directory Structure
 
-You're an expert in the following areas:
+### Key Directories
 
-- TypeScript
-- React and React Router
-- MobX and MobX-React
-- Node.js and Koa
-- Sequelize ORM
+| Directory  | Purpose                                                     |
+| ---------- | ----------------------------------------------------------- |
+| `app/`     | React web application (components, stores, scenes, hooks)   |
+| `server/`  | Koa API server (routes, models, commands, policies, queues) |
+| `shared/`  | Shared TypeScript types, utilities, and editor components   |
+| `plugins/` | Plugin system for extending functionality                   |
+| `public/`  | Static assets served directly                               |
+| `docs/`    | Architecture and development documentation                  |
+
+### Frontend (`app/`)
+
+- `app/components/` - Reusable UI components
+- `app/scenes/` - Page-level components (routes)
+- `app/stores/` - MobX stores for state management
+- `app/hooks/` - Custom React hooks
+- `app/models/` - Client-side data models
+- `app/utils/` - Frontend utilities
+
+### Backend (`server/`)
+
+- `server/routes/` - API route handlers
+- `server/models/` - Sequelize database models
+- `server/commands/` - Business logic commands
+- `server/policies/` - Authorization policies
+- `server/queues/` - Background job processors
+- `server/middlewares/` - Koa middleware
+- `server/presenters/` - API response formatters
+- `server/migrations/` - Database migrations
+
+### Shared (`shared/`)
+
+- `shared/types.ts` - Common TypeScript types
+- `shared/editor/` - Prosemirror editor components
+- `shared/utils/` - Shared utility functions
+- `shared/validations.ts` - Validation schemas
+
+## Development Environment
+
+### Prerequisites
+
+- Node.js (>=20.12 <21 or 22)
+- Yarn 4.x (package manager)
 - PostgreSQL
 - Redis
-- HTML, CSS and Styled Components
-- Prosemirror (rich text editor)
-- WebSockets and real-time collaboration
 
-## General Guidelines
-
-- Critical – Do not create new markdown (.md) files.
-- Use early returns for readability.
-- Emphasize type safety and static analysis.
-- Follow consistent Prettier formatting.
-- Do not replace smart quotes ("") or ('') with simple quotes ("").
-- Do not add translation strings manually; they will be extracted automatically from the codebase.
-
-## Dependencies and Upgrading
-
-- Use yarn for all dependency management.
-- After updating dependency versions, install to update lockfiles:
+### Common Commands
 
 ```bash
+# Install dependencies
 yarn install
+
+# Start development server (frontend + backend)
+yarn dev:watch
+
+# Run linting
+yarn lint
+
+# Format code
+yarn format
+
+# Type check
+yarn tsc
+
+# Run all tests
+yarn test
+
+# Run specific test file
+yarn test path/to/file.test.ts
+
+# Run test suites
+yarn test:app      # Frontend tests
+yarn test:server   # Backend tests
+yarn test:shared   # Shared code tests
+
+# Database migrations
+yarn db:migrate           # Run migrations
+yarn db:rollback          # Rollback last migration
+yarn db:create-migration  # Create new migration
 ```
 
-## TypeScript Usage
+## Import Conventions
 
-- Use strict mode.
-- Avoid "unknown" unless absolutely necessary.
-- Never use "any".
-- Prefer type definitions; avoid type assertions (as, !).
-- Always use curly braces for if statements.
-- Avoid # for private properties.
-- Prefer interface over type for object shapes.
+Use path aliases instead of relative imports:
 
-## Classes & Code Organization
+```typescript
+// ✓ Correct
+import { User } from "@server/models/User";
+import { formatDate } from "@shared/utils/date";
+import { Button } from "~/components/Button";
 
-### Class Member Order
-
-1. Public static variables
-2. Public static methods
-3. Public variables
-4. Public methods
-5. Protected variables & methods
-6. Private variables & methods
-
-### Exports
-
-- Exported members must appear at the top of the file.
-- Prefer named exports for components & classes.
-- Document ALL public/exported functions with JSDoc.
-
-## React Usage
-
-- Use functional components with hooks.
-- Event handlers should be prefixed with "handle", like "handleClick" for onClick.
-- Avoid unnecessary re-renders by using React.memo, useMemo, and useCallback appropriately.
-- Use descriptive prop types with TypeScript interfaces.
-- Do not import React unless it is used directly.
-- Use styled-components for component styling.
-- Ensure high accessibility (a11y) standards using ARIA roles and semantic HTML.
-
-## MobX State Management
-
-- Use MobX stores for global state management.
-- Keep stores in `app/stores/`.
-- Use `observable`, `action`, and `computed` decorators appropriately.
-- Prefer computed values over manual calculations in render.
-- Keep business logic in stores, not components.
-
-## Database & ORM
-
-- Use Sequelize models in `server/models/`.
-- Generate migrations with Sequelize CLI:
-
-```bash
-yarn sequelize migration:create --name=add-field-to-table
+// ✗ Incorrect - avoid deep relative imports
+import { User } from "../../../server/models/User";
 ```
 
-- Run migrations with `yarn db:migrate`.
-- Use transactions for multi-table operations.
-- Add appropriate indexes for query performance.
-- Always handle database errors gracefully.
+### Path Aliases
 
-## API Design
+| Alias       | Maps To      |
+| ----------- | ------------ |
+| `@server/*` | `./server/*` |
+| `@shared/*` | `./shared/*` |
+| `~/*`       | `./app/*`    |
 
-- RESTful endpoints under `/api/`.
-- Authentication endpoints under `/auth/`.
-- Use consistent error responses.
-- Validate request data using the validation middleware and schemas
-- Use presenters to format API responses.
-- Keep API routes thin, use model methods for business logic, or commands if logic spans multiple models.
+## Testing Requirements
 
-## Authentication & Authorization
+### Test File Location
 
-- JWT tokens for authentication.
-- Policies in `server/policies/` for authorization.
-- Use cancan-style ability checks.
-- Use authenticated middleware for protected routes.
-- Always verify user permissions before data access.
+Tests are colocated with source files using the `.test.ts` or `.test.tsx` extension:
 
-## Real-time Collaboration
+```
+server/models/User.ts
+server/models/User.test.ts
+```
 
-- WebSocket connections for real-time updates.
-- Use Y.js for collaborative editing.
-- Handle connection state changes gracefully.
-
-## Documentation
-
-- All public/exported functions & classes must have JSDoc.
-- Include:
-  - Description
-  - @param and @return (start lowercase, end with period)
-  - @throws if applicable
-- Add a newline between the description and the @ block.
-- Use correct punctuation.
-
-## Testing
-
-- Run tests with Jest:
+### Running Tests
 
 ```bash
 # Run a specific test file (preferred)
-yarn test path/to/test.spec.ts
+yarn test path/to/file.test.ts
 
-# Run every test (avoid)
+# Run all tests
 yarn test
-
-# Run test suites (avoid)
-yarn test:app      # All frontend tests
-yarn test:server   # All backend tests
-yarn test:shared   # All shared code tests
 ```
 
-- Write unit tests for utilities and business logic in a collocated .test.ts file.
+### Writing Tests
+
+- Use Jest for all tests
+- Mock external dependencies in `__mocks__/` folders
+- Focus on critical paths and business logic
 - Do not create new test directories
-- Mock external dependencies appropriately in **mocks** folder.
-- Aim for high code coverage but focus on critical paths.
 
-## Code Quality
+## Code Review Checklist
 
-- Use Oxlint for linting: `yarn lint`
-- Format code with Prettier: `yarn format`
-- Check types with TypeScript: `yarn tsc`
-- Pre-commit hooks run automatically via Husky.
-- Fix linting issues before committing.
+When reviewing or writing code, verify:
 
-## Error Handling
+### TypeScript
 
-- Use custom error classes in `server/errors.ts`.
-- Always catch and handle errors appropriately.
-- Log errors with appropriate context.
-- Return user-friendly error messages.
-- Never expose sensitive information in errors.
+- [ ] No use of `any` type
+- [ ] Avoid `unknown` unless necessary
+- [ ] Prefer `interface` over `type` for object shapes
+- [ ] Avoid type assertions (`as`, `!`)
+- [ ] Strict null checks are respected
 
-## Performance
+### React Components
 
-- Use React.memo for expensive components.
-- Implement pagination for large lists.
-- Use database indexes effectively.
-- Cache expensive computations.
-- Monitor performance with appropriate tools.
-- Lazy load routes and components where appropriate.
+- [ ] Use functional components with hooks
+- [ ] Event handlers prefixed with "handle" (e.g., `handleClick`)
+- [ ] Use styled-components for styling
+- [ ] Ensure accessibility (ARIA roles, semantic HTML)
+- [ ] Avoid unnecessary re-renders (use `React.memo`, `useMemo`, `useCallback`)
 
-## Security
+### Code Style
 
-- Sanitize all user input.
-- Use CSRF protection.
-- Use rateLimiter middleware for sensitive endpoints.
-- Follow OWASP guidelines.
-- Never store sensitive data in plain text.
-- Use environment variables for secrets.
+- [ ] Use early returns for readability
+- [ ] Always use curly braces for if statements
+- [ ] Named exports for components and classes
+- [ ] JSDoc for all public/exported functions
+- [ ] No console.log in production code
+
+### API Routes
+
+- [ ] Validate request data with validation middleware
+- [ ] Use presenters for response formatting
+- [ ] Check user authorization via policies
+- [ ] Handle errors gracefully
+
+## Common Pitfalls to Avoid
+
+### 1. Direct State Mutation
+
+```typescript
+// ✗ Wrong - mutating observable directly
+user.name = "New Name";
+
+// ✓ Correct - use MobX action
+@action
+updateName(name: string) {
+  this.name = name;
+}
+```
+
+### 2. Missing Error Handling
+
+```typescript
+// ✗ Wrong - unhandled promise
+async function fetchData() {
+  const data = await api.get("/data");
+  return data;
+}
+
+// ✓ Correct - proper error handling
+async function fetchData() {
+  try {
+    const data = await api.get("/data");
+    return data;
+  } catch (error) {
+    Logger.error("Failed to fetch data", error);
+    throw error;
+  }
+}
+```
+
+### 3. Importing React Unnecessarily
+
+```typescript
+// ✗ Wrong - unnecessary React import
+import React from "react";
+
+function Component() {
+  return <div>Hello</div>;
+}
+
+// ✓ Correct - no React import needed with JSX transform
+function Component() {
+  return <div>Hello</div>;
+}
+```
+
+### 4. Using Relative Imports
+
+```typescript
+// ✗ Wrong
+import { helper } from "../../../shared/utils/helper";
+
+// ✓ Correct
+import { helper } from "@shared/utils/helper";
+```
+
+### 5. Missing JSDoc on Public Functions
+
+```typescript
+// ✗ Wrong - no documentation
+export function calculateTotal(items: Item[]): number {
+  return items.reduce((sum, item) => sum + item.price, 0);
+}
+
+// ✓ Correct - proper JSDoc
+/**
+ * Calculates the total price of all items.
+ *
+ * @param items - the items to sum.
+ * @returns the total price.
+ */
+export function calculateTotal(items: Item[]): number {
+  return items.reduce((sum, item) => sum + item.price, 0);
+}
+```
+
+## Key Dependencies
+
+| Package                 | Purpose                 |
+| ----------------------- | ----------------------- |
+| `react`                 | UI framework            |
+| `mobx` / `mobx-react`   | State management        |
+| `koa`                   | Backend web framework   |
+| `sequelize`             | PostgreSQL ORM          |
+| `ioredis`               | Redis client            |
+| `prosemirror-*`         | Rich text editor        |
+| `yjs` / `y-prosemirror` | Real-time collaboration |
+| `styled-components`     | CSS-in-JS styling       |
+| `zod`                   | Schema validation       |
+| `bull`                  | Background job queue    |
+
+## Additional Resources
+
+- See `CLAUDE.md` for detailed coding standards
+- See `docs/ARCHITECTURE.md` for system architecture
+- Run `yarn lint` before committing to catch issues early

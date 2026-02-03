@@ -1,0 +1,6 @@
+{
+  "$schema": "https://raw.githubusercontent.com/oxc-project/oxlint/main/npm/oxlint/configuration_schema.json",
+  "rules": {
+    "complexity": ["warn", { "max": 20 }]
+  }
+}
