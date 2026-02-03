@@ -1,4 +1,7 @@
 {
+  // TODO: Enable stricter TypeScript settings in a future dedicated PR:
+  // - "noImplicitThis": true (currently causes ~100+ errors)
+  // - "noImplicitOverride": true (currently causes ~100+ errors)
   "compilerOptions": {
     "allowSyntheticDefaultImports": true,
     "alwaysStrict": true,
