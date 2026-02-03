@@ -13,6 +13,85 @@ There is a web client which is fully responsive and works on mobile devices.
 
 Refer to /docs/ARCHITECTURE.md for detailed architecture documentation.
 
+## Quick Start / Environment Setup
+
+### Prerequisites
+
+- Node.js 22+ (see `.nvmrc` for exact version)
+- Yarn 4 (specified in `packageManager` field of `package.json`)
+- PostgreSQL
+- Redis
+
+### Setup Steps
+
+1. Clone and install dependencies:
+
+```bash
+yarn install
+```
+
+2. Copy the environment file and configure it:
+
+```bash
+cp .env.sample .env
+```
+
+Edit `.env` to configure your database connection, Redis URL, and other required settings. See `.env.sample` for documentation on each variable.
+
+3. Run database migrations:
+
+```bash
+yarn db:migrate
+```
+
+4. Start the development server:
+
+```bash
+yarn dev
+```
+
+## Development Commands
+
+```bash
+# Development
+yarn dev              # Start development server
+yarn build            # Build for production
+yarn start            # Start production server
+
+# Code Quality
+yarn lint             # Run Oxlint
+yarn format           # Format with Prettier
+yarn tsc              # Type check
+
+# Testing
+yarn test             # Run all tests
+yarn test path/to/file.test.ts  # Run specific test
+yarn test:app         # Run frontend tests
+yarn test:server      # Run backend tests
+yarn test:shared      # Run shared code tests
+
+# Database
+yarn db:migrate       # Run migrations
+yarn db:rollback      # Rollback last migration
+yarn sequelize migration:create --name=your-migration  # Create migration
+```
+
+## CI/CD Checks
+
+The following checks run automatically in GitHub Actions CI:
+
+- **Oxlint linting** - Code quality and style enforcement
+- **TypeScript type checking** - Static type analysis with strict mode
+- **Jest tests** - Unit and integration tests across app, shared, and server (sharded)
+- **Bundle size analysis** - Monitors frontend bundle size (on main branch)
+- **CodeQL security scanning** - Automated security vulnerability detection
+
+**Before pushing**, run these checks locally to catch issues early:
+
+```bash
+yarn lint && yarn tsc && yarn test
+```
+
 ## Instructions
 
 You're an expert in the following areas:
@@ -36,6 +115,17 @@ You're an expert in the following areas:
 - Follow consistent Prettier formatting.
 - Do not replace smart quotes ("") or ('') with simple quotes ("").
 - Do not add translation strings manually; they will be extracted automatically from the codebase.
+
+## File Naming Conventions
+
+- **Components**: `ComponentName.tsx` in `app/components/`
+- **Scenes**: `SceneName.tsx` in `app/scenes/`
+- **Stores**: `StoreNameStore.ts` in `app/stores/`
+- **Models (frontend)**: `ModelName.ts` in `app/models/`
+- **Models (backend)**: `ModelName.ts` in `server/models/`
+- **Tests**: Collocated as `*.test.ts` or `*.test.tsx` next to source file
+- **Presenters**: `modelName.ts` in `server/presenters/`
+- **Policies**: `modelName.ts` in `server/policies/`
 
 ## Dependencies and Upgrading
 
@@ -128,6 +218,15 @@ yarn sequelize migration:create --name=add-field-to-table
 - Use Y.js for collaborative editing.
 - Handle connection state changes gracefully.
 
+## Plugins
+
+Plugins extend Outline's functionality and are located in the `plugins/` directory.
+
+- Each plugin is a self-contained module that can export routes, models, and/or processors
+- Plugins follow the same coding standards as the main application
+- Plugin routes are automatically registered when the server starts
+- Use plugins for optional features that can be enabled/disabled independently
+
 ## Documentation
 
 - All public/exported functions & classes must have JSDoc.
@@ -193,3 +292,44 @@ yarn test:shared   # All shared code tests
 - Follow OWASP guidelines.
 - Never store sensitive data in plain text.
 - Use environment variables for secrets.
+
+## Common Patterns
+
+### Creating a new API endpoint
+
+```typescript
+// server/routes/api/example.ts
+router.post("example.create", auth(), async (ctx) => {
+  const { name } = ctx.input.body;
+  authorize(ctx.state.user, "create", Example);
+  const example = await Example.create({ name, userId: ctx.state.user.id });
+  ctx.body = presentExample(example);
+});
+```
+
+### Creating a new React component
+
+```typescript
+// app/components/ExampleComponent.tsx
+import * as React from "react";
+import styled from "styled-components";
+
+interface Props {
+  title: string;
+  onClick?: () => void;
+}
+
+function ExampleComponent({ title, onClick }: Props) {
+  const handleClick = React.useCallback(() => {
+    onClick?.();
+  }, [onClick]);
+
+  return <Container onClick={handleClick}>{title}</Container>;
+}
+
+const Container = styled.div`
+  padding: 8px;
+`;
+
+export default ExampleComponent;
+```
