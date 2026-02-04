@@ -1,483 +1,134 @@
 # AI Agent Guidelines for Outline
 
-This document provides guidance for AI agents working on the Outline codebase.
+This document provides guidelines for AI coding agents working on the Outline codebase.
 
-## Overview
+## Quick Reference
 
-Outline is a fast, collaborative knowledge base built for teams. It is a TypeScript monorepo containing:
+- **Language**: TypeScript (strict null checks enabled)
+- **Package Manager**: Yarn 4.11.0 (use `yarn` commands, not `npm`)
+- **Linter**: oxlint (`yarn lint`)
+- **Formatter**: Prettier (`yarn prettier`)
+- **Test Framework**: Jest with sharding
+- **Backend**: Node.js with Koa framework
+- **Frontend**: React with MobX state management
+- **Editor**: Prosemirror with Y.js real-time collaboration
 
-- **Frontend**: React web application with MobX state management
-- **Backend**: Koa API server with Sequelize ORM, PostgreSQL, and Redis
-- **Real-time**: WebSocket-based collaboration using Y.js
-- **Editor**: Prosemirror-based rich text editor
+## Before Making Changes
 
-### Key Dependencies
+1. **Read CLAUDE.md first** - Contains detailed architecture and patterns
+2. **Run type check**: `yarn tsc` before committing
+3. **Run lint**: `yarn lint --quiet` to check for issues
+4. **Run tests**: `yarn test` for the relevant area
 
-| Package                 | Purpose                 |
-| ----------------------- | ----------------------- |
-| `react`                 | UI framework            |
-| `mobx` / `mobx-react`   | State management        |
-| `koa`                   | Backend web framework   |
-| `sequelize`             | PostgreSQL ORM          |
-| `ioredis`               | Redis client            |
-| `prosemirror-*`         | Rich text editor        |
-| `yjs` / `y-prosemirror` | Real-time collaboration |
-| `styled-components`     | CSS-in-JS styling       |
-| `zod`                   | Schema validation       |
-| `bull`                  | Background job queue    |
+## Code Style Requirements
 
-## Architecture Overview
+### TypeScript
+- Use strict null checks - always handle `null` and `undefined` cases
+- Prefer `interface` over `type` for object shapes
+- Use explicit return types for exported functions
+- No `any` types - use `unknown` if type is truly unknown
 
-### Frontend (`app/`)
+### React Components
+- Use functional components with hooks
+- Use MobX `observer` for reactive components
+- Follow existing component patterns in `app/components/`
+- Use `styled-components` for styling (following existing patterns)
 
-The frontend is a React application compiled with Vite, using MobX for state management and styled-components for styling.
+### Backend (Server)
+- Follow existing patterns in `server/` directory
+- Use Koa middleware patterns
+- Transactions must be properly handled with Sequelize
+- Events should be dispatched for significant actions
 
-| Directory          | Purpose                                          |
-| ------------------ | ------------------------------------------------ |
-| `app/actions/`     | Reusable actions (navigating, opening, creating) |
-| `app/components/`  | Reusable UI components                           |
-| `app/editor/`      | Editor-specific React components                 |
-| `app/hooks/`       | Custom React hooks                               |
-| `app/menus/`       | Context menus                                    |
-| `app/models/`      | MobX observable state models                     |
-| `app/routes/`      | Route definitions (async loaded with suspense)   |
-| `app/scenes/`      | Full-page view components                        |
-| `app/stores/`      | Collections of models and fetch logic            |
-| `app/types/`       | TypeScript types                                 |
-| `app/utils/`       | Frontend utilities                               |
-
-### Backend (`server/`)
-
-The API server is built on Koa with Sequelize ORM. Authorization uses cancan policies, and background jobs are managed with Bull queues.
-
-| Directory              | Purpose                               |
-| ---------------------- | ------------------------------------- |
-| `server/routes/api/`   | API route handlers                    |
-| `server/routes/auth/`  | Authentication routes                 |
-| `server/commands/`     | Business logic commands               |
-| `server/config/`       | Database configuration                |
-| `server/emails/`       | Transactional email templates         |
-| `server/middlewares/`  | Koa middleware                        |
-| `server/migrations/`   | Database migrations                   |
-| `server/models/`       | Sequelize database models             |
-| `server/onboarding/`   | Onboarding document templates         |
-| `server/policies/`     | Authorization logic (cancan)          |
-| `server/presenters/`   | API response formatters               |
-| `server/queues/`       | Async queue definitions               |
-| `server/services/`     | Application service definitions       |
-| `server/test/`         | Test helpers and fixtures             |
-| `server/utils/`        | Backend utilities                     |
-
-### Shared (`shared/`)
-
-Code shared between frontend and backend.
-
-| Directory             | Purpose                         |
-| --------------------- | ------------------------------- |
-| `shared/components/`  | Shared React components         |
-| `shared/editor/`      | Prosemirror editor components   |
-| `shared/i18n/`        | Internationalization            |
-| `shared/styles/`      | Global styles and colors        |
-| `shared/utils/`       | Shared utility methods          |
-| `shared/types.ts`     | Common TypeScript types         |
-| `shared/validations.ts` | Validation schemas            |
-
-### Plugins (`plugins/`)
-
-Plugin system for extending functionality.
-
-## Code Style & Patterns
-
-### TypeScript Patterns
-
-- **No `any` type**: Avoid using `any`; use proper types or generics
-- **Avoid `unknown`**: Only use when absolutely necessary
-- **Prefer `interface`**: Use `interface` over `type` for object shapes
-- **Avoid type assertions**: Minimize use of `as` and `!` operators
-- **Strict null checks**: Always handle null/undefined cases
-- **Consistent type imports**: Use `import type` for type-only imports
-
-```typescript
-// ✓ Correct - use consistent type imports
-import type { User } from "@server/models/User";
-
-// ✗ Incorrect
-import { User } from "@server/models/User"; // when only using as a type
-```
-
-### Import Conventions
-
-Use path aliases instead of relative imports:
-
-```typescript
-// ✓ Correct
-import { User } from "@server/models/User";
-import { formatDate } from "@shared/utils/date";
-import { Button } from "~/components/Button";
-
-// ✗ Incorrect - avoid deep relative imports
-import { User } from "../../../server/models/User";
-```
-
-| Alias       | Maps To      |
-| ----------- | ------------ |
-| `@server/*` | `./server/*` |
-| `@shared/*` | `./shared/*` |
-| `~/*`       | `./app/*`    |
-
-### MobX State Management Patterns
-
-```typescript
-// ✗ Wrong - mutating observable directly
-user.name = "New Name";
-
-// ✓ Correct - use MobX action
-@action
-updateName(name: string) {
-  this.name = name;
-}
-```
-
-- Always use `@action` decorators for state mutations
-- Use `@computed` for derived state
-- Keep stores focused and single-purpose
-- Co-locate state logic with components when not global
-
-### React Component Patterns
-
-- **Functional components**: Always use functional components with hooks
-- **Event handler naming**: Prefix with "handle" (e.g., `handleClick`, `handleSubmit`)
-- **Styling**: Use styled-components for component styles
-- **No React import**: JSX transform is enabled, no need to import React
-- **Performance**: Use `React.memo`, `useMemo`, `useCallback` to avoid unnecessary re-renders
-- **Self-closing tags**: Always use self-closing tags for empty elements
-
-```typescript
-// ✗ Wrong - unnecessary React import
-import React from "react";
-
-function Component() {
-  return <div>Hello</div>;
-}
-
-// ✓ Correct - no React import needed with JSX transform
-function Component() {
-  return <div>Hello</div>;
-}
-```
-
-```typescript
-// ✗ Wrong - non-self-closing empty element
-<div className="spacer"></div>
-
-// ✓ Correct - self-closing
-<div className="spacer" />
-```
-
-### Koa Backend Patterns
-
-- **Validation**: Use validation middleware for request data
-- **Presenters**: Always format API responses through presenters
-- **Policies**: Check authorization via cancan policies
-- **Error handling**: Handle errors gracefully with proper error types
-- **Commands**: Use commands for complex business logic across models
-
-### Prosemirror Editor Patterns
-
-- Editor components are in `shared/editor/`
-- Use Y.js for real-time collaboration
-- Follow existing node and mark patterns
+### Database
+- Migrations go in `server/migrations/`
+- Models extend BaseModel in `server/models/`
+- Always include proper indexes for new queries
+- Use transactions for multi-step operations
 
 ## Testing Requirements
 
-### Test Configuration
+### Before Submitting Code
+- [ ] All existing tests pass (`yarn test`)
+- [ ] New functionality has tests
+- [ ] Type check passes (`yarn tsc`)
+- [ ] Lint passes (`yarn lint --quiet`)
 
-Tests use Jest with the following coverage thresholds:
+### Test Locations
+- Server tests: `server/**/*.test.ts`
+- App tests: `app/**/*.test.ts`
+- Shared tests: `shared/**/*.test.ts`
+- Plugin tests: `plugins/**/*.test.ts`
 
-| Metric     | Threshold |
-| ---------- | --------- |
-| Statements | 50%       |
-| Branches   | 40%       |
-| Functions  | 50%       |
-| Lines      | 50%       |
-
-### Test File Location
-
-Tests are colocated with source files using `.test.ts` or `.test.tsx` extension:
-
-```
-server/models/User.ts
-server/models/User.test.ts
-```
-
-**Do not create new test directories** - tests belong next to their source files.
-
-### Running Tests
-
+### Running Specific Tests
 ```bash
-# Run a specific test file (preferred)
-yarn test path/to/file.test.ts
-
 # Run all tests
 yarn test
 
-# Run test suites
-yarn test:app      # Frontend tests (jsdom environment)
-yarn test:server   # Backend tests (node environment)
-yarn test:shared   # Shared code tests (both environments)
+# Run server tests only
+yarn test:server
+
+# Run specific test file
+yarn jest path/to/test.test.ts
 ```
 
-### Writing Tests
+## Common Patterns
 
-- Use Jest for all tests
-- Mock external dependencies in `__mocks__/` folders
-- Focus on critical paths and business logic
-- Frontend tests run in jsdom environment
-- Backend tests run in node environment
-- Shared tests run in both environments
+### Adding a New API Endpoint
+1. Create route in `server/routes/api/`
+2. Add authentication/authorization middleware
+3. Use existing presenter patterns for responses
+4. Add appropriate tests
+5. Dispatch events for auditing
 
-### What Needs Testing
+### Adding a New React Component
+1. Create in `app/components/` following existing patterns
+2. Use `observer` wrapper if using MobX stores
+3. Use `styled-components` for styling
+4. Add prop types/interfaces
 
-| Change Type          | Testing Requirements                              |
-| -------------------- | ------------------------------------------------- |
-| New API endpoint     | Unit tests for route handler, integration tests   |
-| New React component  | Component rendering tests, interaction tests      |
-| Business logic       | Unit tests for commands/utilities                 |
-| Database model       | Model validation tests, association tests         |
-| Bug fix              | Regression test proving the fix                   |
+### Adding a New Plugin
+1. Follow structure in `plugins/` directory
+2. Include `plugin.json` manifest
+3. Register in appropriate hooks
 
 ## Code Review Checklist
 
-### TypeScript
-
-- [ ] No use of `any` type
-- [ ] Avoid `unknown` unless necessary
-- [ ] Prefer `interface` over `type` for object shapes
-- [ ] Avoid type assertions (`as`, `!`)
-- [ ] Strict null checks are respected
-- [ ] Consistent type imports used
-
-### React Components
-
-- [ ] Use functional components with hooks
-- [ ] Event handlers prefixed with "handle"
-- [ ] Use styled-components for styling
-- [ ] Ensure accessibility (ARIA roles, semantic HTML)
-- [ ] Avoid unnecessary re-renders
-- [ ] Self-closing tags for empty elements
-
-### Code Style
-
-- [ ] Use early returns for readability
-- [ ] Always use curly braces for if statements
-- [ ] Named exports for components and classes
-- [ ] JSDoc for all public/exported functions
-- [ ] No `console.log` in production code
-- [ ] Arrow body style follows "as-needed" convention
-- [ ] Strict equality (`===`) used instead of loose equality
-
-### API Routes
-
-- [ ] Validate request data with validation middleware
-- [ ] Use presenters for response formatting
-- [ ] Check user authorization via policies
-- [ ] Handle errors gracefully
-
-### Database
-
-- [ ] Migrations are backward compatible
-- [ ] Rollback migration is provided
-- [ ] Indexes added for frequently queried columns
-- [ ] Foreign key constraints properly defined
-
-### Tests
-
+- [ ] No TypeScript errors (`yarn tsc`)
+- [ ] No lint errors (`yarn lint --quiet`)
 - [ ] Tests added for new functionality
-- [ ] Coverage thresholds maintained
-- [ ] Tests colocated with source files
+- [ ] Existing tests still pass
+- [ ] No hardcoded strings (use i18n)
+- [ ] Proper error handling
+- [ ] No console.log statements in production code
+- [ ] Database migrations are reversible
+- [ ] API changes are backward compatible
 
-## Common Pitfalls
+## Performance Considerations
 
-### 1. Direct State Mutation
+- Avoid N+1 queries - use eager loading
+- Use pagination for list endpoints
+- Consider caching for expensive operations
+- Profile large changes with the built-in tools
 
-```typescript
-// ✗ Wrong - mutating observable directly
-user.name = "New Name";
+## Security Guidelines
 
-// ✓ Correct - use MobX action
-@action
-updateName(name: string) {
-  this.name = name;
-}
-```
+- Never trust user input - always validate
+- Use parameterized queries (Sequelize handles this)
+- Check authorization before every sensitive operation
+- Don't expose internal IDs unnecessarily
+- Sanitize HTML content
 
-### 2. Missing Error Handling
+## Debugging Tips
 
-```typescript
-// ✗ Wrong - unhandled promise
-async function fetchData() {
-  const data = await api.get("/data");
-  return data;
-}
+- Use `DEBUG=*` environment variable for verbose logging
+- Check `server/logs/` for application logs
+- Use browser DevTools for frontend debugging
+- React DevTools and MobX DevTools are helpful
 
-// ✓ Correct - proper error handling
-async function fetchData() {
-  try {
-    const data = await api.get("/data");
-    return data;
-  } catch (error) {
-    Logger.error("Failed to fetch data", error);
-    throw error;
-  }
-}
-```
+## Getting Help
 
-### 3. Importing React Unnecessarily
-
-```typescript
-// ✗ Wrong - unnecessary React import
-import React from "react";
-
-function Component() {
-  return <div>Hello</div>;
-}
-
-// ✓ Correct - no React import needed with JSX transform
-function Component() {
-  return <div>Hello</div>;
-}
-```
-
-### 4. Using Relative Imports
-
-```typescript
-// ✗ Wrong
-import { helper } from "../../../shared/utils/helper";
-
-// ✓ Correct
-import { helper } from "@shared/utils/helper";
-```
-
-### 5. Missing JSDoc on Public Functions
-
-```typescript
-// ✗ Wrong - no documentation
-export function calculateTotal(items: Item[]): number {
-  return items.reduce((sum, item) => sum + item.price, 0);
-}
-
-// ✓ Correct - proper JSDoc
-/**
- * Calculates the total price of all items.
- *
- * @param items - the items to sum.
- * @returns the total price.
- */
-export function calculateTotal(items: Item[]): number {
-  return items.reduce((sum, item) => sum + item.price, 0);
-}
-```
-
-### 6. Using Loose Equality
-
-```typescript
-// ✗ Wrong - loose equality
-if (value == null) { ... }
-
-// ✓ Correct - strict equality
-if (value === null || value === undefined) { ... }
-```
-
-### 7. Missing Curly Braces
-
-```typescript
-// ✗ Wrong - no curly braces
-if (condition) return value;
-
-// ✓ Correct - always use curly braces
-if (condition) {
-  return value;
-}
-```
-
-### 8. Non-Self-Closing Empty Elements
-
-```tsx
-// ✗ Wrong
-<div className="spacer"></div>
-<Component prop="value"></Component>
-
-// ✓ Correct
-<div className="spacer" />
-<Component prop="value" />
-```
-
-## Development Environment
-
-### Prerequisites
-
-- Node.js (>=20.12 <21 or 22)
-- Yarn 4.x (package manager)
-- PostgreSQL
-- Redis
-
-### Common Commands
-
-```bash
-# Install dependencies
-yarn install
-
-# Start development server (frontend + backend)
-yarn dev:watch
-
-# Run linting
-yarn lint
-
-# Format code
-yarn format
-
-# Type check
-yarn tsc
-
-# Run all tests
-yarn test
-
-# Database migrations
-yarn db:migrate           # Run migrations
-yarn db:rollback          # Rollback last migration
-yarn db:create-migration  # Create new migration
-```
-
-## Pull Request Guidelines
-
-### PR Title Format
-
-Use conventional commit format:
-- `feat: Add new feature`
-- `fix: Resolve bug in component`
-- `refactor: Improve code structure`
-- `docs: Update documentation`
-- `test: Add missing tests`
-- `chore: Update dependencies`
-
-### PR Description
-
-Include:
-1. **Summary**: Brief description of changes
-2. **Motivation**: Why this change is needed
-3. **Testing**: How the changes were tested
-4. **Screenshots**: For UI changes (if applicable)
-5. **Breaking Changes**: Note any breaking changes
-
-### Breaking Changes
-
-- Document breaking changes clearly in PR description
-- Update migration guides if needed
-- Ensure database migrations are backward compatible
-- Consider feature flags for gradual rollout
-
-## Additional Resources
-
-- See `docs/ARCHITECTURE.md` for detailed system architecture
-- API documentation: https://getoutline.com/developers
-- Run `yarn lint` before committing to catch issues early
+- Read CLAUDE.md for detailed architecture
+- Check existing code for patterns
+- Look at recent PRs for examples
+- Consult the external docs at https://getoutline.com/developers
