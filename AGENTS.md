@@ -1,15 +1,30 @@
 # AI Agent Guidelines for Outline
 
-This document provides guidance for AI agents working on the Outline codebase.
+This document provides comprehensive guidance for AI agents working on the Outline codebase. It covers best practices, testing requirements, code review checklists, common pitfalls, file organization, and security considerations.
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Quick Reference](#quick-reference)
+- [AI Agent Best Practices](#ai-agent-best-practices)
+- [Testing Requirements](#testing-requirements)
+- [Code Review Checklist](#code-review-checklist)
+- [Common Pitfalls](#common-pitfalls)
+- [File Organization](#file-organization)
+- [Security Considerations](#security-considerations)
+- [Development Commands](#development-commands)
+
+---
 
 ## Overview
 
 Outline is a fast, collaborative knowledge base built for teams. It is a TypeScript monorepo containing:
 
-- **Frontend**: React web application with MobX state management
-- **Backend**: Koa API server with Sequelize ORM, PostgreSQL, and Redis
+- **Frontend**: React web application with MobX state management (`app/`)
+- **Backend**: Koa API server with Sequelize ORM, PostgreSQL, and Redis (`server/`)
 - **Real-time**: WebSocket-based collaboration using Y.js
-- **Editor**: Prosemirror-based rich text editor
+- **Editor**: Prosemirror-based rich text editor (`shared/editor/`)
+- **Plugins**: Extensible plugin system (`plugins/`)
 
 ### Key Dependencies
 
@@ -26,167 +41,77 @@ Outline is a fast, collaborative knowledge base built for teams. It is a TypeScr
 | `zod`                   | Schema validation       |
 | `bull`                  | Background job queue    |
 
-## Architecture Overview
+---
 
-### Frontend (`app/`)
+## Quick Reference
 
-The frontend is a React application compiled with Vite, using MobX for state management and styled-components for styling.
+### Import Aliases
 
-| Directory          | Purpose                                          |
-| ------------------ | ------------------------------------------------ |
-| `app/actions/`     | Reusable actions (navigating, opening, creating) |
-| `app/components/`  | Reusable UI components                           |
-| `app/editor/`      | Editor-specific React components                 |
-| `app/hooks/`       | Custom React hooks                               |
-| `app/menus/`       | Context menus                                    |
-| `app/models/`      | MobX observable state models                     |
-| `app/routes/`      | Route definitions (async loaded with suspense)   |
-| `app/scenes/`      | Full-page view components                        |
-| `app/stores/`      | Collections of models and fetch logic            |
-| `app/types/`       | TypeScript types                                 |
-| `app/utils/`       | Frontend utilities                               |
+| Alias       | Maps To      | Usage                    |
+| ----------- | ------------ | ------------------------ |
+| `@server/*` | `./server/*` | Backend code             |
+| `@shared/*` | `./shared/*` | Shared utilities/types   |
+| `~/*`       | `./app/*`    | Frontend code            |
 
-### Backend (`server/`)
+### Essential Commands
 
-The API server is built on Koa with Sequelize ORM. Authorization uses cancan policies, and background jobs are managed with Bull queues.
-
-| Directory              | Purpose                               |
-| ---------------------- | ------------------------------------- |
-| `server/routes/api/`   | API route handlers                    |
-| `server/routes/auth/`  | Authentication routes                 |
-| `server/commands/`     | Business logic commands               |
-| `server/config/`       | Database configuration                |
-| `server/emails/`       | Transactional email templates         |
-| `server/middlewares/`  | Koa middleware                        |
-| `server/migrations/`   | Database migrations                   |
-| `server/models/`       | Sequelize database models             |
-| `server/onboarding/`   | Onboarding document templates         |
-| `server/policies/`     | Authorization logic (cancan)          |
-| `server/presenters/`   | API response formatters               |
-| `server/queues/`       | Async queue definitions               |
-| `server/services/`     | Application service definitions       |
-| `server/test/`         | Test helpers and fixtures             |
-| `server/utils/`        | Backend utilities                     |
-
-### Shared (`shared/`)
-
-Code shared between frontend and backend.
-
-| Directory             | Purpose                         |
-| --------------------- | ------------------------------- |
-| `shared/components/`  | Shared React components         |
-| `shared/editor/`      | Prosemirror editor components   |
-| `shared/i18n/`        | Internationalization            |
-| `shared/styles/`      | Global styles and colors        |
-| `shared/utils/`       | Shared utility methods          |
-| `shared/types.ts`     | Common TypeScript types         |
-| `shared/validations.ts` | Validation schemas            |
-
-### Plugins (`plugins/`)
-
-Plugin system for extending functionality.
-
-## Code Style & Patterns
-
-### TypeScript Patterns
-
-- **No `any` type**: Avoid using `any`; use proper types or generics
-- **Avoid `unknown`**: Only use when absolutely necessary
-- **Prefer `interface`**: Use `interface` over `type` for object shapes
-- **Avoid type assertions**: Minimize use of `as` and `!` operators
-- **Strict null checks**: Always handle null/undefined cases
-- **Consistent type imports**: Use `import type` for type-only imports
-
-```typescript
-// ✓ Correct - use consistent type imports
-import type { User } from "@server/models/User";
-
-// ✗ Incorrect
-import { User } from "@server/models/User"; // when only using as a type
+```bash
+yarn lint              # Run linting (oxlint)
+yarn tsc               # Type check
+yarn test              # Run all tests
+yarn test:server       # Server tests only
+yarn test:app          # Frontend tests only
+yarn format            # Format code with Prettier
 ```
 
-### Import Conventions
+---
 
-Use path aliases instead of relative imports:
+## AI Agent Best Practices
 
-```typescript
-// ✓ Correct
-import { User } from "@server/models/User";
-import { formatDate } from "@shared/utils/date";
-import { Button } from "~/components/Button";
+### Before Making Changes
 
-// ✗ Incorrect - avoid deep relative imports
-import { User } from "../../../server/models/User";
-```
+1. **Understand the architecture**: Read `docs/ARCHITECTURE.md` for system design
+2. **Check existing patterns**: Look at similar files before creating new ones
+3. **Verify import aliases**: Always use `@server/`, `@shared/`, or `~/` instead of relative paths
+4. **Review the schema**: Check `shared/validations.ts` for shared validation patterns
 
-| Alias       | Maps To      |
-| ----------- | ------------ |
-| `@server/*` | `./server/*` |
-| `@shared/*` | `./shared/*` |
-| `~/*`       | `./app/*`    |
+### When Writing Code
 
-### MobX State Management Patterns
+1. **Follow TypeScript patterns**:
+   - No `any` type - use proper types or generics
+   - Prefer `interface` over `type` for object shapes
+   - Use `import type` for type-only imports
+   - Handle null/undefined cases explicitly
 
-```typescript
-// ✗ Wrong - mutating observable directly
-user.name = "New Name";
+2. **Match existing code style**:
+   - Functional components with hooks (no class components)
+   - Event handlers prefixed with "handle" (e.g., `handleClick`)
+   - JSDoc comments on all exported functions
+   - Use styled-components for React styling
 
-// ✓ Correct - use MobX action
-@action
-updateName(name: string) {
-  this.name = name;
-}
-```
+3. **Follow the command pattern** for business logic:
+   - Complex operations go in `server/commands/`
+   - Commands should be pure functions with clear inputs/outputs
+   - Example: `documentCreator`, `documentUpdater`, `documentMover`
 
-- Always use `@action` decorators for state mutations
-- Use `@computed` for derived state
-- Keep stores focused and single-purpose
-- Co-locate state logic with components when not global
+### After Making Changes
 
-### React Component Patterns
+1. **Run linting**: `yarn lint` (must pass before commit)
+2. **Run type check**: `yarn tsc` (must pass before commit)
+3. **Run relevant tests**: `yarn test path/to/file.test.ts`
+4. **Verify formatting**: `yarn format:check`
 
-- **Functional components**: Always use functional components with hooks
-- **Event handler naming**: Prefix with "handle" (e.g., `handleClick`, `handleSubmit`)
-- **Styling**: Use styled-components for component styles
-- **No React import**: JSX transform is enabled, no need to import React
-- **Performance**: Use `React.memo`, `useMemo`, `useCallback` to avoid unnecessary re-renders
-- **Self-closing tags**: Always use self-closing tags for empty elements
+### Commit Guidelines
 
-```typescript
-// ✗ Wrong - unnecessary React import
-import React from "react";
+Use conventional commit format:
+- `feat:` New feature
+- `fix:` Bug fix
+- `refactor:` Code restructuring
+- `docs:` Documentation changes
+- `test:` Test additions/modifications
+- `chore:` Maintenance tasks
 
-function Component() {
-  return <div>Hello</div>;
-}
-
-// ✓ Correct - no React import needed with JSX transform
-function Component() {
-  return <div>Hello</div>;
-}
-```
-
-```typescript
-// ✗ Wrong - non-self-closing empty element
-<div className="spacer"></div>
-
-// ✓ Correct - self-closing
-<div className="spacer" />
-```
-
-### Koa Backend Patterns
-
-- **Validation**: Use validation middleware for request data
-- **Presenters**: Always format API responses through presenters
-- **Policies**: Check authorization via cancan policies
-- **Error handling**: Handle errors gracefully with proper error types
-- **Commands**: Use commands for complex business logic across models
-
-### Prosemirror Editor Patterns
-
-- Editor components are in `shared/editor/`
-- Use Y.js for real-time collaboration
-- Follow existing node and mark patterns
+---
 
 ## Testing Requirements
 
@@ -203,102 +128,135 @@ Tests use Jest with the following coverage thresholds:
 
 ### Test File Location
 
-Tests are colocated with source files using `.test.ts` or `.test.tsx` extension:
+**IMPORTANT**: Tests are colocated with source files. Do NOT create separate test directories.
 
 ```
 server/models/User.ts
-server/models/User.test.ts
-```
+server/models/User.test.ts    # ✓ Correct - next to source
 
-**Do not create new test directories** - tests belong next to their source files.
+server/models/__tests__/      # ✗ Wrong - don't create test directories
+```
 
 ### Running Tests
 
 ```bash
-# Run a specific test file (preferred)
+# Run a specific test file (preferred for development)
 yarn test path/to/file.test.ts
 
 # Run all tests
 yarn test
 
-# Run test suites
+# Run test suites by environment
 yarn test:app      # Frontend tests (jsdom environment)
 yarn test:server   # Backend tests (node environment)
 yarn test:shared   # Shared code tests (both environments)
 ```
 
-### Writing Tests
+### Test Environment Requirements
 
-- Use Jest for all tests
-- Mock external dependencies in `__mocks__/` folders
-- Focus on critical paths and business logic
-- Frontend tests run in jsdom environment
-- Backend tests run in node environment
-- Shared tests run in both environments
+- **Server tests** require PostgreSQL (CI provides this)
+- **Frontend tests** run in jsdom
+- Set `TZ=UTC` for consistent date handling (already configured in scripts)
 
 ### What Needs Testing
 
-| Change Type          | Testing Requirements                              |
+| Change Type          | Required Tests                                    |
 | -------------------- | ------------------------------------------------- |
-| New API endpoint     | Unit tests for route handler, integration tests   |
-| New React component  | Component rendering tests, interaction tests      |
+| New API endpoint     | Route handler unit tests, integration tests       |
+| New React component  | Rendering tests, interaction tests                |
 | Business logic       | Unit tests for commands/utilities                 |
 | Database model       | Model validation tests, association tests         |
 | Bug fix              | Regression test proving the fix                   |
+| Utility function     | Unit tests with edge cases                        |
+
+### Writing Tests
+
+```typescript
+// Server test example
+import { buildUser, buildDocument } from "@server/test/factories";
+import { getTestServer } from "@server/test/support";
+
+const server = getTestServer();
+
+describe("documents.info", () => {
+  it("should return document", async () => {
+    const user = await buildUser();
+    const document = await buildDocument({ userId: user.id });
+
+    const res = await server.post("/api/documents.info", {
+      body: { id: document.id },
+      headers: { authorization: `Bearer ${user.getJwtToken()}` },
+    });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.id).toBe(document.id);
+  });
+});
+```
+
+---
 
 ## Code Review Checklist
 
 ### TypeScript
 
 - [ ] No use of `any` type
-- [ ] Avoid `unknown` unless necessary
-- [ ] Prefer `interface` over `type` for object shapes
-- [ ] Avoid type assertions (`as`, `!`)
-- [ ] Strict null checks are respected
-- [ ] Consistent type imports used
+- [ ] `unknown` only used when absolutely necessary
+- [ ] `interface` preferred over `type` for object shapes
+- [ ] Type assertions (`as`, `!`) minimized
+- [ ] Strict null checks respected
+- [ ] Consistent `import type` for type-only imports
 
 ### React Components
 
-- [ ] Use functional components with hooks
+- [ ] Functional components with hooks (no class components)
 - [ ] Event handlers prefixed with "handle"
-- [ ] Use styled-components for styling
-- [ ] Ensure accessibility (ARIA roles, semantic HTML)
-- [ ] Avoid unnecessary re-renders
+- [ ] styled-components used for styling
+- [ ] Accessibility considered (ARIA roles, semantic HTML)
+- [ ] `React.memo`, `useMemo`, `useCallback` used where appropriate
 - [ ] Self-closing tags for empty elements
+- [ ] No unnecessary `import React from "react"`
 
 ### Code Style
 
-- [ ] Use early returns for readability
-- [ ] Always use curly braces for if statements
+- [ ] Early returns for readability
+- [ ] Curly braces always used for if statements
 - [ ] Named exports for components and classes
 - [ ] JSDoc for all public/exported functions
 - [ ] No `console.log` in production code
 - [ ] Arrow body style follows "as-needed" convention
-- [ ] Strict equality (`===`) used instead of loose equality
+- [ ] Strict equality (`===`) instead of loose equality (`==`)
+- [ ] Path aliases used (`@server/`, `@shared/`, `~/`)
 
 ### API Routes
 
-- [ ] Validate request data with validation middleware
-- [ ] Use presenters for response formatting
-- [ ] Check user authorization via policies
-- [ ] Handle errors gracefully
+- [ ] Request data validated with Zod schema
+- [ ] Responses formatted through presenters
+- [ ] User authorization checked via policies
+- [ ] Errors handled gracefully with proper error types
+- [ ] Rate limiting applied where appropriate
 
 ### Database
 
 - [ ] Migrations are backward compatible
-- [ ] Rollback migration is provided
+- [ ] Rollback migration provided
 - [ ] Indexes added for frequently queried columns
 - [ ] Foreign key constraints properly defined
+- [ ] Transactions used for multi-model operations
 
 ### Tests
 
 - [ ] Tests added for new functionality
-- [ ] Coverage thresholds maintained
 - [ ] Tests colocated with source files
+- [ ] Coverage thresholds maintained
+- [ ] Edge cases covered
+- [ ] Mocks placed in `__mocks__/` folders
+
+---
 
 ## Common Pitfalls
 
-### 1. Direct State Mutation
+### 1. Direct MobX State Mutation
 
 ```typescript
 // ✗ Wrong - mutating observable directly
@@ -335,14 +293,14 @@ async function fetchData() {
 ### 3. Importing React Unnecessarily
 
 ```typescript
-// ✗ Wrong - unnecessary React import
+// ✗ Wrong - JSX transform handles this
 import React from "react";
 
 function Component() {
   return <div>Hello</div>;
 }
 
-// ✓ Correct - no React import needed with JSX transform
+// ✓ Correct - no React import needed
 function Component() {
   return <div>Hello</div>;
 }
@@ -351,10 +309,10 @@ function Component() {
 ### 4. Using Relative Imports
 
 ```typescript
-// ✗ Wrong
+// ✗ Wrong - deep relative imports
 import { helper } from "../../../shared/utils/helper";
 
-// ✓ Correct
+// ✓ Correct - use path aliases
 import { helper } from "@shared/utils/helper";
 ```
 
@@ -370,8 +328,8 @@ export function calculateTotal(items: Item[]): number {
 /**
  * Calculates the total price of all items.
  *
- * @param items - the items to sum.
- * @returns the total price.
+ * @param items - The items to sum.
+ * @returns The total price.
  */
 export function calculateTotal(items: Item[]): number {
   return items.reduce((sum, item) => sum + item.price, 0);
@@ -412,47 +370,308 @@ if (condition) {
 <Component prop="value" />
 ```
 
-## Development Environment
+### 9. Forgetting to Use Presenters
 
-### Prerequisites
+```typescript
+// ✗ Wrong - returning model directly
+ctx.body = { data: document };
 
-- Node.js (>=20.12 <21 or 22)
-- Yarn 4.x (package manager)
-- PostgreSQL
-- Redis
+// ✓ Correct - use presenter
+ctx.body = { data: await presentDocument(ctx, document) };
+```
 
-### Common Commands
+### 10. Skipping Authorization Checks
+
+```typescript
+// ✗ Wrong - no authorization
+router.post("documents.update", auth(), async (ctx) => {
+  const document = await Document.findByPk(id);
+  // directly updating...
+});
+
+// ✓ Correct - check policy first
+router.post("documents.update", auth(), async (ctx) => {
+  const document = await Document.findByPk(id);
+  authorize(ctx.state.auth.user, "update", document);
+  // now safe to update...
+});
+```
+
+---
+
+## File Organization
+
+### Frontend (`app/`)
+
+| Directory     | Purpose                                           | When to Use                              |
+| ------------- | ------------------------------------------------- | ---------------------------------------- |
+| `actions/`    | Reusable actions (navigate, open, create)         | Cross-component operations               |
+| `components/` | Reusable UI components                            | Shared UI elements                       |
+| `editor/`     | Editor-specific React components                  | Editor functionality                     |
+| `hooks/`      | Custom React hooks                                | Reusable stateful logic                  |
+| `menus/`      | Context menus                                     | Right-click/dropdown menus               |
+| `models/`     | MobX observable state models                      | Client-side data models                  |
+| `routes/`     | Route definitions (async loaded)                  | New pages/views                          |
+| `scenes/`     | Full-page view components                         | Complete page layouts                    |
+| `stores/`     | Collections of models + fetch logic               | Data fetching/caching                    |
+| `types/`      | TypeScript types                                  | Frontend-specific types                  |
+| `utils/`      | Frontend utilities                                | Helper functions                         |
+
+### Backend (`server/`)
+
+| Directory        | Purpose                              | When to Use                              |
+| ---------------- | ------------------------------------ | ---------------------------------------- |
+| `routes/api/`    | API route handlers                   | New API endpoints                        |
+| `routes/auth/`   | Authentication routes                | OAuth/auth providers                     |
+| `commands/`      | Business logic commands              | Complex multi-model operations           |
+| `config/`        | Database configuration               | DB settings                              |
+| `emails/`        | Transactional email templates        | Email notifications                      |
+| `middlewares/`   | Koa middleware                       | Request processing                       |
+| `migrations/`    | Database migrations                  | Schema changes                           |
+| `models/`        | Sequelize database models            | Data models                              |
+| `policies/`      | Authorization logic (cancan)         | Permission rules                         |
+| `presenters/`    | API response formatters              | JSON response shaping                    |
+| `queues/`        | Async queue definitions              | Background jobs                          |
+| `services/`      | Application services                 | Service modules (api, worker)            |
+| `test/`          | Test helpers and fixtures            | Test utilities only                      |
+| `utils/`         | Backend utilities                    | Helper functions                         |
+
+### Shared (`shared/`)
+
+| Directory      | Purpose                       | When to Use                              |
+| -------------- | ----------------------------- | ---------------------------------------- |
+| `components/`  | Shared React components       | Used in both frontend and backend        |
+| `editor/`      | Prosemirror editor            | Editor core logic                        |
+| `i18n/`        | Internationalization          | Translations                             |
+| `styles/`      | Global styles and colors      | Theme, colors                            |
+| `utils/`       | Shared utility methods        | Cross-environment helpers                |
+| `types.ts`     | Common TypeScript types       | Shared type definitions                  |
+| `validations.ts` | Validation schemas          | Shared Zod schemas                       |
+
+### Plugins (`plugins/`)
+
+Each plugin follows a standard structure:
+```
+plugins/
+├── slack/
+│   ├── client/          # Frontend components
+│   ├── server/          # Backend routes/logic
+│   └── shared/          # Shared types/utils
+├── github/
+├── google/
+└── ...
+```
+
+### API Route Structure
+
+```
+server/routes/api/
+├── documents/
+│   ├── documents.ts     # Route handlers
+│   ├── documents.test.ts # Tests
+│   └── schema.ts        # Zod validation schemas
+├── collections/
+├── users/
+└── index.ts             # Route registration
+```
+
+---
+
+## Security Considerations
+
+### Authentication & Authorization
+
+1. **Always use `auth()` middleware** for authenticated routes
+2. **Always use `authorize()` from policies** before performing actions
+3. **Never trust client input** - validate everything with Zod schemas
+4. **Use policies for complex permission logic** - see `server/policies/`
+
+```typescript
+// Example: Proper authorization flow
+router.post("documents.update", auth(), async (ctx) => {
+  const { id } = ctx.input.body;
+  const document = await Document.findByPk(id);
+
+  // ALWAYS authorize before performing action
+  authorize(ctx.state.auth.user, "update", document);
+
+  // Now safe to proceed
+});
+```
+
+### Data Validation
+
+1. **Use Zod schemas** for all API input validation
+2. **Schema files go in `schema.ts`** next to route handlers
+3. **Use `validate()` middleware** to apply schemas
+
+```typescript
+// schema.ts
+export const DocumentsUpdateSchema = BaseSchema.extend({
+  body: z.object({
+    id: z.string().uuid(),
+    title: z.string().min(1).max(255),
+    text: z.string().optional(),
+  }),
+});
+
+// documents.ts
+router.post(
+  "documents.update",
+  auth(),
+  validate(T.DocumentsUpdateSchema),
+  async (ctx) => {
+    // ctx.input is now typed and validated
+  }
+);
+```
+
+### Sensitive Data
+
+1. **Never log sensitive data** (passwords, tokens, PII)
+2. **Use presenters** to filter sensitive fields from responses
+3. **Check for credentials in commits** before pushing
+4. **Encrypt sensitive model fields** using sequelize-encrypted
+
+### Rate Limiting
+
+1. **Apply rate limiting** to sensitive endpoints
+2. **Use `rateLimiter()` middleware** with appropriate strategy
+
+```typescript
+router.post(
+  "auth.login",
+  rateLimiter(RateLimiterStrategy.TenPerMinute),
+  async (ctx) => {
+    // Rate-limited endpoint
+  }
+);
+```
+
+### SQL Injection Prevention
+
+1. **Always use Sequelize methods** - never raw SQL with user input
+2. **Use parameterized queries** when raw SQL is necessary
+3. **Validate and sanitize** all user inputs
+
+### XSS Prevention
+
+1. **Presenters sanitize output** - always use them
+2. **React escapes by default** - don't use `dangerouslySetInnerHTML`
+3. **Validate URLs** before redirecting
+
+### File Uploads
+
+1. **Validate file types** and sizes
+2. **Use `AttachmentHelper`** for file handling
+3. **Store files in configured storage** (S3, local, etc.)
+
+### Environment Variables
+
+1. **Never commit secrets** - use `.env` files (gitignored)
+2. **Reference `env` module** for environment access
+3. **Required variables** are validated at startup
+
+---
+
+## Development Commands
+
+### Daily Development
 
 ```bash
 # Install dependencies
 yarn install
 
-# Start development server (frontend + backend)
+# Start development server (frontend + backend with hot reload)
 yarn dev:watch
 
 # Run linting
 yarn lint
+
+# Run linting on changed files only
+yarn lint:changed
 
 # Format code
 yarn format
 
 # Type check
 yarn tsc
+```
 
+### Testing
+
+```bash
 # Run all tests
 yarn test
 
-# Database migrations
-yarn db:migrate           # Run migrations
-yarn db:rollback          # Rollback last migration
-yarn db:create-migration  # Create new migration
+# Run specific test file
+yarn test path/to/file.test.ts
+
+# Run test suites
+yarn test:app      # Frontend tests (jsdom)
+yarn test:server   # Backend tests (node)
+yarn test:shared   # Shared code tests
 ```
+
+### Database
+
+```bash
+# Run migrations
+yarn db:migrate
+
+# Rollback last migration
+yarn db:rollback
+
+# Create new migration
+yarn db:create-migration
+
+# Reset database (drop, create, migrate)
+yarn db:reset
+```
+
+### Building
+
+```bash
+# Full production build
+yarn build
+
+# Build frontend only
+yarn vite:build
+
+# Build backend only
+yarn build:server
+
+# Clean build artifacts
+yarn clean
+```
+
+### CI Checks (run before PR)
+
+```bash
+yarn lint --quiet    # Linting must pass
+yarn tsc             # Type checking must pass
+yarn test            # Tests must pass
+yarn format:check    # Formatting must be correct
+```
+
+---
+
+## Additional Resources
+
+- **Architecture Details**: `docs/ARCHITECTURE.md`
+- **Security Policy**: `docs/SECURITY.md`
+- **API Documentation**: https://getoutline.com/developers
+- **Contributing Guidelines**: See repository CONTRIBUTING.md
+- **Services Overview**: `docs/SERVICES.md`
+
+---
 
 ## Pull Request Guidelines
 
 ### PR Title Format
 
-Use conventional commit format:
+Use conventional commits: `type: description`
+
 - `feat: Add new feature`
 - `fix: Resolve bug in component`
 - `refactor: Improve code structure`
@@ -460,24 +679,30 @@ Use conventional commit format:
 - `test: Add missing tests`
 - `chore: Update dependencies`
 
-### PR Description
+### PR Description Template
 
-Include:
-1. **Summary**: Brief description of changes
-2. **Motivation**: Why this change is needed
-3. **Testing**: How the changes were tested
-4. **Screenshots**: For UI changes (if applicable)
-5. **Breaking Changes**: Note any breaking changes
+```markdown
+## Summary
+Brief description of changes
 
-### Breaking Changes
+## Motivation
+Why this change is needed
 
-- Document breaking changes clearly in PR description
-- Update migration guides if needed
-- Ensure database migrations are backward compatible
-- Consider feature flags for gradual rollout
+## Testing
+How the changes were tested
 
-## Additional Resources
+## Screenshots (if applicable)
+For UI changes
 
-- See `docs/ARCHITECTURE.md` for detailed system architecture
-- API documentation: https://getoutline.com/developers
-- Run `yarn lint` before committing to catch issues early
+## Breaking Changes (if any)
+Note any breaking changes
+```
+
+### Before Submitting
+
+1. [ ] All CI checks pass (`lint`, `tsc`, `test`)
+2. [ ] Code follows project patterns
+3. [ ] Tests added for new functionality
+4. [ ] Documentation updated if needed
+5. [ ] No sensitive data in commits
+6. [ ] PR title follows conventional commits
