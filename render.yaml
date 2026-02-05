@@ -1,0 +1,37 @@
+services:
+  - type: web
+    name: outline
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    region: oregon
+    plan: starter
+    branch: main
+    healthCheckPath: /
+    envVars:
+      - key: PORT
+        value: "10000"
+      - key: NODE_ENV
+        value: production
+      - key: ENABLE_UPDATES
+        value: "false"
+      - key: FILE_STORAGE
+        value: local
+      - key: FILE_STORAGE_LOCAL_ROOT_DIR
+        value: /var/lib/outline/data
+      - key: PGSSLMODE
+        value: disable
+      - key: FORCE_HTTPS
+        value: "false"
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: SECRET_KEY
+        sync: false
+      - key: UTILS_SECRET
+        sync: false
+      - key: URL
+        sync: false
+    previews:
+      generation: automatic
