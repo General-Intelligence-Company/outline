@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: outline
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "10000"
+    previews:
+      generation: automatic
